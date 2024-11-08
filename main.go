@@ -125,6 +125,10 @@ func cmdPing() string {
     return serializeSimpleString("PONG")
 }
 
+func cmdEcho(message[] string) string {
+    return serializeSimpleString(message[1])
+}
+
 func main() {
     listerner, err := net.Listen("tcp", "localhost:6379")
     if err != nil {
@@ -152,14 +156,18 @@ func handleConnection(conn net.Conn) {
             return
         }
 
+        result := ""
         message := deserialize(buffer[:n])
         if message[0] == "PING" {
-            result := cmdPing()
-            _, err = conn.Write([]byte(result))
-            if err != nil {
-                fmt.Println("Error:", err)
-                return
-            }
+            result = cmdPing()
+        }
+        if message[0] == "ECHO" {
+            result = cmdEcho(message)
+        }
+        _, err = conn.Write([]byte(result))
+        if err != nil {
+            fmt.Println("Error:", err)
+            return
         }
     }
 }
