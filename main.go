@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 )
 
@@ -116,6 +117,49 @@ func deserialize(message []byte) []string {
     return []string{""}
 }
 
+func serializeSimpleString(message string) string {
+    return fmt.Sprintf("+%s\r\n", message)
+}
+
+func cmdPing() string {
+    return serializeSimpleString("PONG")
+}
+
 func main() {
-    fmt.Print("lets do it!")    
+    listerner, err := net.Listen("tcp", "localhost:6379")
+    if err != nil {
+        fmt.Println(err)
+        return
+        // handle error
+    }
+    for {
+        conn, err := listerner.Accept()
+        if err != nil {
+            // handle error
+        }
+        go handleConnection(conn)
+    }    
+}
+
+func handleConnection(conn net.Conn) {
+    defer conn.Close()
+
+    buffer := make([]byte, 1024)
+    for {
+        n, err := conn.Read(buffer)
+        if err != nil {
+            fmt.Println("Error:", err)
+            return
+        }
+
+        message := deserialize(buffer[:n])
+        if message[0] == "PING" {
+            result := cmdPing()
+            _, err = conn.Write([]byte(result))
+            if err != nil {
+                fmt.Println("Error:", err)
+                return
+            }
+        }
+    }
 }
