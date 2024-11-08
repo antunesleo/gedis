@@ -178,6 +178,7 @@ func handleConnection(conn net.Conn) {
 
         result := ""
         message := deserialize(buffer[:n])
+        
         if message[0] == "PING" {
             result = cmdPing()
         }
@@ -190,6 +191,10 @@ func handleConnection(conn net.Conn) {
         if message[0] == "get" {
             result = cmdGet(message)
         }
+        if result == "" {
+            result = serializeError("not implemented")
+        }
+
         _, err = conn.Write([]byte(result))
         if err != nil {
             fmt.Println("Error:", err)
