@@ -13,6 +13,9 @@ const ARRAY_STRING_CH = "*"
 const CARRIAGE_RETURN_BYTE_NUMBER = 13 // \r
 const LINE_FEED_BYTE_NUMBER = 10 // \n
 
+
+var cache = make(map[string]string)
+
 func splitFromStartIndexToCRLF(startIndex int, message []byte) []byte {
     var deserialized []byte 
     for startIndex < len(message){
@@ -121,12 +124,29 @@ func serializeSimpleString(message string) string {
     return fmt.Sprintf("+%s\r\n", message)
 }
 
+func serializeError(message string) string {
+    return fmt.Sprintf("-%s\r\n", message)
+}
+
 func cmdPing() string {
     return serializeSimpleString("PONG")
 }
 
 func cmdEcho(message[] string) string {
     return serializeSimpleString(message[1])
+}
+
+func cmdSet(message[] string) string {
+    cache[message[1]] = message[2]
+    return serializeSimpleString("OK")
+}
+
+func cmdGet(message[]string) string {
+    value, ok := cache[message[1]]
+    if ok {
+        return serializeSimpleString(value)
+    }
+    return serializeError("doesn't exist")
 }
 
 func main() {
@@ -163,6 +183,12 @@ func handleConnection(conn net.Conn) {
         }
         if message[0] == "ECHO" {
             result = cmdEcho(message)
+        }
+        if message[0] == "set" {
+            result = cmdSet(message)
+        }
+        if message[0] == "get" {
+            result = cmdGet(message)
         }
         _, err = conn.Write([]byte(result))
         if err != nil {
