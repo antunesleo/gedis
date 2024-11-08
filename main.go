@@ -36,15 +36,24 @@ func deserializeError(startIndex int, message []byte) []string {
 func deserializeBulkString(startIndex int, message []byte) []string {
     moveForward := true
     
+    var numberBuffer []byte
     index := startIndex
     for moveForward {
         _, err := strconv.Atoi(string(message[index]))
         if err == nil {
+            numberBuffer = append(numberBuffer, message[index])
             index += 1
         } else {
             moveForward = false
         }
     }
+    
+    number, err := strconv.Atoi(string(numberBuffer))
+    if err == nil && number == 0 {
+        // empty
+        return []string{}
+    }
+
 
     if message[index] == CARRIAGE_RETURN_BYTE_NUMBER && message[index+1] == LINE_FEED_BYTE_NUMBER {
         index += 2
