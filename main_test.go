@@ -40,13 +40,13 @@ func TestDeserializeBulkSring(t *testing.T) {
 }
 
 
-// func TestDeserializeArray(t *testing.T) {
-// 	strMessage := "*2\r\n$4\r\necho\r\n$11\r\nhello world\r\n"
-// 	byteArrMessage := []byte(strMessage)
-// 	got := deserialize(byteArrMessage)
-// 	want := []string{"echo", "hello world"}
+func TestDeserializeArray(t *testing.T) {
+	strMessage := "*2\r\n$4\r\necho\r\n$11\r\nhello world\r\n"
+	byteArrMessage := []byte(strMessage)
+	got := deserialize(byteArrMessage)
+	want := []string{"echo", "hello world"}
 
-// 	if !reflect.DeepEqual(got, want) {
-// 		t.Errorf("got %q, wanted %q", got, want)
-// 	}
-// }
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, wanted %q", got, want)
+	}
+}

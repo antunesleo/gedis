@@ -16,8 +16,7 @@ func splitFromStartIndexToCRLF(startIndex int, message []byte) []byte {
     var deserialized []byte 
     for startIndex < len(message){
         if message[startIndex] == CARRIAGE_RETURN_BYTE_NUMBER || message[startIndex] == LINE_FEED_BYTE_NUMBER {
-            startIndex += 1
-            continue
+            break
         }
         deserialized = append(deserialized, message[startIndex])
         startIndex += 1
@@ -33,30 +32,58 @@ func deserializeError(startIndex int, message []byte) []string {
     return []string{string(splitFromStartIndexToCRLF(startIndex, message))}
 }
 
+
 func deserializeBulkString(startIndex int, message []byte) []string {
-    var deserialized []byte 
-    for startIndex < len(message){
-        _, err := strconv.Atoi(string(message[startIndex]))
+    moveForward := true
+    
+    index := startIndex
+    for moveForward {
+        _, err := strconv.Atoi(string(message[index]))
         if err == nil {
-            startIndex += 1
-            continue
+            index += 1
+        } else {
+            moveForward = false
         }
-        if message[startIndex] == CARRIAGE_RETURN_BYTE_NUMBER || message[startIndex] == LINE_FEED_BYTE_NUMBER {
-            startIndex += 1
-            continue
-        }
-        deserialized = append(deserialized, message[startIndex])
-        startIndex += 1
     }
-    return []string{string(deserialized)}
+
+    if message[index] == CARRIAGE_RETURN_BYTE_NUMBER && message[index+1] == LINE_FEED_BYTE_NUMBER {
+        index += 2
+    } else {
+        // invalid
+        return []string{}
+    }
+
+    var stringBuffer []byte
+    moveForward = true
+    for moveForward {
+        if message[index] == CARRIAGE_RETURN_BYTE_NUMBER && message[index+1] == LINE_FEED_BYTE_NUMBER {
+            moveForward = false
+        } else {
+            stringBuffer = append(stringBuffer, message[index])
+            index += 1
+        }
+    }
+    return []string{string(stringBuffer)}
 }
+
 
 func deserializeArray(startIndex int, message []byte) []string {
     var deserializedArray []string
 
-    for startIndex < len(message){
-        if message[startIndex] == CARRIAGE_RETURN_BYTE_NUMBER {
-            startIndex += 2
+    for startIndex < len(message) {
+        if string(message[startIndex]) == "$" {
+            startIndex += 1
+            moveForward := true
+            for moveForward {
+                _, err := strconv.Atoi(string(message[startIndex]))
+                if err == nil {
+                    startIndex += 1
+                } else {
+                    moveForward = false
+                }
+            }
+            deserializedArrayItem := deserializeBulkString(startIndex, message)[0]
+            deserializedArray = append(deserializedArray, deserializedArrayItem)
         }
         startIndex += 1
     }
