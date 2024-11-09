@@ -204,7 +204,7 @@ func handleConnection(conn net.Conn) {
             result = serializeError("not implemented")
         }
 
-        _, err = conn.Write([]byte(result))
+        _, err = conn.Write(result)
         if err != nil {
             fmt.Println("Error:", err)
             return
