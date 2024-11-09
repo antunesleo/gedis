@@ -1,20 +1,24 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"strconv"
 )
 
-const SIMPLE_STRING_CH = "+"
-const ERROR_STRING_CH = "-"
-const BULK_STRING_CH = "$"
-const ARRAY_STRING_CH = "*"
+const SIMPLE_STRING_BYTE_NUMBER = 43 // +
+const ERROR_STRING_BYTE_NUMBER = 45 // -
+const BULK_STRING_BYTE_NUMBER = 36 // $
+const ARRAY_STRING_BYTE_NUMBER = 42 // *
 const CARRIAGE_RETURN_BYTE_NUMBER = 13 // \r
 const LINE_FEED_BYTE_NUMBER = 10 // \n
+var PING_BYTE_ARRAY = []byte("PING")
+var ECHO_BYTE_ARRAY = []byte("ECHO")
+var GET_BYTE_ARRAY = []byte("get")
+var SET_BYTE_ARRAY = []byte("set")
 
-
-var cache = make(map[string]string)
+var cache = make(map[string][]byte)
 
 func splitFromStartIndexToCRLF(startIndex int, message []byte) []byte {
     var deserialized []byte 
@@ -28,16 +32,16 @@ func splitFromStartIndexToCRLF(startIndex int, message []byte) []byte {
     return deserialized
 }
 
-func deserializeSimpleString(startIndex int, message []byte) []string {
-    return []string{string(splitFromStartIndexToCRLF(startIndex, message))}
+func deserializeSimpleString(startIndex int, message []byte) [][]byte {
+    return [][]byte{splitFromStartIndexToCRLF(startIndex, message)}
 }
 
-func deserializeError(startIndex int, message []byte) []string {
-    return []string{string(splitFromStartIndexToCRLF(startIndex, message))}
+func deserializeError(startIndex int, message []byte) [][]byte {
+    return  [][]byte{splitFromStartIndexToCRLF(startIndex, message)}
 }
 
 
-func deserializeBulkString(startIndex int, message []byte) []string {
+func deserializeBulkString(startIndex int, message []byte) [][]byte {
     moveForward := true
     
     var numberBuffer []byte
@@ -55,7 +59,7 @@ func deserializeBulkString(startIndex int, message []byte) []string {
     number, err := strconv.Atoi(string(numberBuffer))
     if err == nil && number == 0 {
         // empty
-        return []string{}
+        return [][]byte{}
     }
 
 
@@ -63,7 +67,7 @@ func deserializeBulkString(startIndex int, message []byte) []string {
         index += 2
     } else {
         // invalid
-        return []string{}
+        return [][]byte{}
     }
 
     var stringBuffer []byte
@@ -76,15 +80,15 @@ func deserializeBulkString(startIndex int, message []byte) []string {
             index += 1
         }
     }
-    return []string{string(stringBuffer)}
+    return [][]byte{stringBuffer}
 }
 
 
-func deserializeArray(startIndex int, message []byte) []string {
-    var deserializedArray []string
+func deserializeArray(startIndex int, message []byte) [][]byte {
+    var deserializedArray [][]byte
 
     for startIndex < len(message) {
-        if string(message[startIndex]) == "$" {
+        if message[startIndex] == BULK_STRING_BYTE_NUMBER {
             startIndex += 1
             moveForward := true
             for moveForward {
@@ -104,47 +108,51 @@ func deserializeArray(startIndex int, message []byte) []string {
     return deserializedArray
 }
 
-func deserialize(message []byte) []string {
-    if string(message[0]) == SIMPLE_STRING_CH {
+func deserialize(message []byte) [][]byte {
+    if message[0] == SIMPLE_STRING_BYTE_NUMBER {
         return deserializeSimpleString(1, message)
     }
-    if string(message[0]) == ERROR_STRING_CH {
+    if message[0] == ERROR_STRING_BYTE_NUMBER {
         return deserializeError(1, message)
     }
-    if string(message[0]) == BULK_STRING_CH {
+    if message[0] == BULK_STRING_BYTE_NUMBER {
         return deserializeBulkString(1, message)
     }
-    if string(message[0]) == "*" {
+    if message[0] == ARRAY_STRING_BYTE_NUMBER {
         return deserializeArray(1, message)
     }
-    return []string{""}
+    return [][]byte{}
 }
 
-func serializeSimpleString(message string) string {
-    return fmt.Sprintf("+%s\r\n", message)
+func serializeSimpleStringFromByteArray(message []byte) []byte {
+    return []byte(fmt.Sprintf("+%s\r\n", message))
 }
 
-func serializeError(message string) string {
-    return fmt.Sprintf("-%s\r\n", message)
+func serializeSimpleStringFromString(message string) []byte {
+    return []byte(fmt.Sprintf("+%s\r\n", message))
 }
 
-func cmdPing() string {
-    return serializeSimpleString("PONG")
+func serializeError(message string) []byte {
+    return []byte(fmt.Sprintf("-%s\r\n", message))
 }
 
-func cmdEcho(message[] string) string {
-    return serializeSimpleString(message[1])
+func cmdPing() []byte {
+    return serializeSimpleStringFromString("PONG")
 }
 
-func cmdSet(message[] string) string {
-    cache[message[1]] = message[2]
-    return serializeSimpleString("OK")
+func cmdEcho(message[][]byte) []byte {
+    return serializeSimpleStringFromByteArray(message[1])
 }
 
-func cmdGet(message[]string) string {
-    value, ok := cache[message[1]]
+func cmdSet(message[][]byte) []byte {
+    cache[string(message[1])] = message[2]
+    return serializeSimpleStringFromString("OK")
+}
+
+func cmdGet(message[][]byte) []byte {
+    value, ok := cache[string(message[1])]
     if ok {
-        return serializeSimpleString(value)
+        return serializeSimpleStringFromByteArray(value)
     }
     return serializeError("doesn't exist")
 }
@@ -176,22 +184,23 @@ func handleConnection(conn net.Conn) {
             return
         }
 
-        result := ""
+        result := []byte{}
         message := deserialize(buffer[:n])
-        
-        if message[0] == "PING" {
+
+        if bytes.Equal(message[0], PING_BYTE_ARRAY) {
             result = cmdPing()
         }
-        if message[0] == "ECHO" {
+        if bytes.Equal(message[0], ECHO_BYTE_ARRAY) {
             result = cmdEcho(message)
         }
-        if message[0] == "set" {
+        if bytes.Equal(message[0], SET_BYTE_ARRAY) {
             result = cmdSet(message)
         }
-        if message[0] == "get" {
+        if bytes.Equal(message[0], GET_BYTE_ARRAY) {
             result = cmdGet(message)
         }
-        if result == "" {
+        
+        if len(result) == 0 {
             result = serializeError("not implemented")
         }
 
