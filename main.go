@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"net"
-	"strconv"
 )
 
 const SIMPLE_STRING_BYTE_NUMBER = 43 // +
@@ -54,13 +53,6 @@ func deserializeBulkString(startIndex int, message []byte) [][]byte {
             moveForward = false
         }
     }
-    
-    number, err := strconv.Atoi(string(numberBuffer))
-    if err == nil && number == 0 {
-        // empty
-        return [][]byte{}
-    }
-
 
     if message[index] == CARRIAGE_RETURN_BYTE_NUMBER && message[index+1] == LINE_FEED_BYTE_NUMBER {
         index += 2
@@ -78,6 +70,9 @@ func deserializeBulkString(startIndex int, message []byte) [][]byte {
             stringBuffer = append(stringBuffer, message[index])
             index += 1
         }
+    }
+    if len(stringBuffer) == 0 {
+        return [][]byte{}
     }
     return [][]byte{stringBuffer}
 }
