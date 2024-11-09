@@ -47,8 +47,7 @@ func deserializeBulkString(startIndex int, message []byte) [][]byte {
     var numberBuffer []byte
     index := startIndex
     for moveForward {
-        _, err := strconv.Atoi(string(message[index]))
-        if err == nil {
+        if  isNumeric(message[index]) {
             numberBuffer = append(numberBuffer, message[index])
             index += 1
         } else {
@@ -83,6 +82,10 @@ func deserializeBulkString(startIndex int, message []byte) [][]byte {
     return [][]byte{stringBuffer}
 }
 
+func isNumeric(c byte) bool {
+    return (c >= '0' && c <= '9')
+}
+
 
 func deserializeArray(startIndex int, message []byte) [][]byte {
     var deserializedArray [][]byte
@@ -92,8 +95,7 @@ func deserializeArray(startIndex int, message []byte) [][]byte {
             startIndex += 1
             moveForward := true
             for moveForward {
-                _, err := strconv.Atoi(string(message[startIndex]))
-                if err == nil {
+                if isNumeric(message[startIndex]) {
                     startIndex += 1
                 } else {
                     moveForward = false
@@ -176,7 +178,7 @@ func main() {
 func handleConnection(conn net.Conn) {
     defer conn.Close()
 
-    buffer := make([]byte, 1024)
+    buffer := make([]byte, 8192)
     for {
         n, err := conn.Read(buffer)
         if err != nil {
