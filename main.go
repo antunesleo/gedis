@@ -42,12 +42,10 @@ func deserializeError(startIndex int, message []byte) [][]byte {
 
 func deserializeBulkString(startIndex int, message []byte) [][]byte {
     moveForward := true
-    
-    var numberBuffer []byte
+
     index := startIndex
     for moveForward {
         if  isNumeric(message[index]) {
-            numberBuffer = append(numberBuffer, message[index])
             index += 1
         } else {
             moveForward = false
