@@ -104,6 +104,9 @@ func deserializeArray(startIndex int, message []byte) [][]byte {
 }
 
 func deserialize(message []byte) [][]byte {
+    if message[0] == ARRAY_STRING_BYTE_NUMBER {
+        return deserializeArray(1, message)
+    }
     if message[0] == SIMPLE_STRING_BYTE_NUMBER {
         return deserializeSimpleString(1, message)
     }
@@ -112,9 +115,6 @@ func deserialize(message []byte) [][]byte {
     }
     if message[0] == BULK_STRING_BYTE_NUMBER {
         return deserializeBulkString(1, message)
-    }
-    if message[0] == ARRAY_STRING_BYTE_NUMBER {
-        return deserializeArray(1, message)
     }
     return [][]byte{}
 }
@@ -182,17 +182,14 @@ func handleConnection(conn net.Conn) {
         result := []byte{}
         message := deserialize(buffer[:n])
 
-        if bytes.Equal(message[0], PING_BYTE_ARRAY) {
-            result = cmdPing()
-        }
-        if bytes.Equal(message[0], ECHO_BYTE_ARRAY) {
-            result = cmdEcho(message)
-        }
         if bytes.Equal(message[0], SET_BYTE_ARRAY) {
             result = cmdSet(message)
-        }
-        if bytes.Equal(message[0], GET_BYTE_ARRAY) {
+        } else if bytes.Equal(message[0], GET_BYTE_ARRAY) {
             result = cmdGet(message)
+        } else if bytes.Equal(message[0], PING_BYTE_ARRAY) {
+            result = cmdPing()
+        } else if bytes.Equal(message[0], ECHO_BYTE_ARRAY) {
+            result = cmdEcho(message)
         }
         
         if len(result) == 0 {
@@ -202,7 +199,6 @@ func handleConnection(conn net.Conn) {
         _, err = conn.Write(result)
         if err != nil {
             fmt.Println("Error:", err)
-            return
         }
     }
 }
