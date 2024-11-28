@@ -15,6 +15,7 @@ const LINE_FEED_BYTE_NUMBER = 10 // \n
 var PING_BYTE_ARRAY = []byte("PING")
 var ECHO_BYTE_ARRAY = []byte("ECHO")
 var GET_BYTE_ARRAY = []byte("get")
+var EXISTS_BYTE_ARRAY = []byte("EXISTS")
 var SET_BYTE_ARRAY = []byte("set")
 
 var cache = make(map[string][]byte)
@@ -131,6 +132,10 @@ func serializeError(message string) []byte {
     return []byte(fmt.Sprintf("-%s\r\n", message))
 }
 
+func serializerInteger(intToSerialize int) []byte {
+    return []byte(fmt.Sprintf(":%d\r\n", intToSerialize))
+}
+
 func cmdPing() []byte {
     return serializeSimpleStringFromString("PONG")
 }
@@ -150,6 +155,20 @@ func cmdGet(message[][]byte) []byte {
         return serializeSimpleStringFromByteArray(value)
     }
     return serializeError("doesn't exist")
+}
+
+func cmdExists(message[][]byte) []byte {
+    var existsCount = 0
+    var itemIndex = 1
+    for itemIndex < len(message) {
+        _, ok := cache[string(message[itemIndex])]
+        if ok {
+            existsCount += 1
+        }
+        itemIndex += 1
+    }
+
+    return serializerInteger(existsCount)
 }
 
 func main() {
@@ -190,6 +209,8 @@ func handleConnection(conn net.Conn) {
             result = cmdPing()
         } else if bytes.Equal(message[0], ECHO_BYTE_ARRAY) {
             result = cmdEcho(message)
+        } else if bytes.Equal(message[0], EXISTS_BYTE_ARRAY) {
+            result = cmdExists(message)
         }
         
         if len(result) == 0 {

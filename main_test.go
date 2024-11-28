@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -64,4 +65,19 @@ func TestDeserializeArray(t *testing.T) {
 			t.Errorf("got %q, wanted %q", got, want)
 		}
 	}
+}
+
+func TestBinaryAdventures(t *testing.T) {
+    letter := 'a'
+    fmt.Printf("Binary representation of '%c': %08b\n", letter, letter)
+
+	number := 97
+    fmt.Printf("Binary representation of %d: %08b\n", number, number)
+	
+    stringNumber := "97"
+    fmt.Printf("Binary representation of \"%s\": ", stringNumber)
+    for _, char := range stringNumber {
+        fmt.Printf("%08b ", char)
+    }
+    fmt.Println()
 }
