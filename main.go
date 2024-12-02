@@ -14,9 +14,11 @@ const CARRIAGE_RETURN_BYTE_NUMBER = 13 // \r
 const LINE_FEED_BYTE_NUMBER = 10 // \n
 var PING_BYTE_ARRAY = []byte("PING")
 var ECHO_BYTE_ARRAY = []byte("ECHO")
-var GET_BYTE_ARRAY = []byte("get")
+var GET_BYTE_ARRAY = []byte("GET")
 var EXISTS_BYTE_ARRAY = []byte("EXISTS")
-var SET_BYTE_ARRAY = []byte("set")
+var SET_BYTE_ARRAY = []byte("SET")
+var DEL_BYTE_ARRAY = []byte("DEL")
+
 
 var cache = make(map[string][]byte)
 
@@ -171,6 +173,22 @@ func cmdExists(message[][]byte) []byte {
     return serializerInteger(existsCount)
 }
 
+func cmdDel(message[][]byte) []byte {
+    var existsCount = 0
+    var itemIndex = 1
+    for itemIndex < len(message) {
+        var key = string(message[itemIndex])
+        _, ok := cache[key]
+        if ok {
+            delete(cache, key)
+            existsCount += 1
+        }
+        itemIndex += 1
+    }
+
+    return serializerInteger(existsCount)   
+}
+
 func main() {
     listerner, err := net.Listen("tcp", "localhost:6379")
     if err != nil {
@@ -211,6 +229,8 @@ func handleConnection(conn net.Conn) {
             result = cmdEcho(message)
         } else if bytes.Equal(message[0], EXISTS_BYTE_ARRAY) {
             result = cmdExists(message)
+        } else if bytes.Equal(message[0], DEL_BYTE_ARRAY) {
+            result = cmdDel(message)
         }
         
         if len(result) == 0 {
