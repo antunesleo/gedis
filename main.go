@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"strconv"
 )
 
 const SIMPLE_STRING_BYTE_NUMBER = 43 // +
@@ -18,6 +19,7 @@ var GET_BYTE_ARRAY = []byte("GET")
 var EXISTS_BYTE_ARRAY = []byte("EXISTS")
 var SET_BYTE_ARRAY = []byte("SET")
 var DEL_BYTE_ARRAY = []byte("DEL")
+var INCR_BYTE_ARRAY = []byte("INCR")
 
 
 var cache = make(map[string][]byte)
@@ -138,6 +140,10 @@ func serializerInteger(intToSerialize int) []byte {
     return []byte(fmt.Sprintf(":%d\r\n", intToSerialize))
 }
 
+func serializerInteger64(intToSerialize int64) []byte {
+    return []byte(fmt.Sprintf(":%d\r\n", intToSerialize))
+}
+
 func cmdPing() []byte {
     return serializeSimpleStringFromString("PONG")
 }
@@ -189,6 +195,26 @@ func cmdDel(message[][]byte) []byte {
     return serializerInteger(existsCount)   
 }
 
+func cmdIncr(message[][]byte) []byte {
+    var key = string(message[1])
+    value, ok := cache[key]
+
+    if ok {
+        value, err := strconv.ParseInt(string(value), 10, 64)
+        if err != nil {
+            return serializeError("ERR value is not an integer or out of range")
+        }
+        newValue := value + 1
+        cache[key] = []byte(strconv.FormatInt(newValue, 10))
+        return serializerInteger64(newValue)
+    }
+
+    var newValue int64 = 1 
+
+    cache[key] = []byte(strconv.FormatInt(newValue, 10))
+    return serializerInteger64(newValue)
+}
+
 func main() {
     listerner, err := net.Listen("tcp", "localhost:6379")
     if err != nil {
@@ -231,6 +257,8 @@ func handleConnection(conn net.Conn) {
             result = cmdExists(message)
         } else if bytes.Equal(message[0], DEL_BYTE_ARRAY) {
             result = cmdDel(message)
+        } else if bytes.Equal(message[0], INCR_BYTE_ARRAY) {
+            result = cmdIncr(message)
         }
         
         if len(result) == 0 {
