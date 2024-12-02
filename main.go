@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 )
 
@@ -23,6 +24,67 @@ var INCR_BYTE_ARRAY = []byte("INCR")
 
 
 var cache = make(map[string][]byte)
+
+
+func saveSnapshot(cache map[string][]byte) error {
+    fi, err := os.Create("snapshop.gedis")
+    if err != nil {
+        return err
+    }
+    for key, value := range cache {
+        fi.Write([]byte(key))
+        fi.Write([]byte("\n"))
+        fi.Write(value)
+        fi.Write([]byte("\n"))
+    }
+    return nil
+}
+
+func restoreSnapshot() (error, map[string][]byte) {
+    cache := map[string][]byte{}
+    fil, err := os.Open("snapshop.gedis")
+    if err != nil {
+        return err, nil
+    }
+    buffer := make([]byte, 10000)
+    _, err = fil.Read(buffer)
+    if err != nil {
+        return err, nil
+    }
+
+    var index = 0
+    for index < len(buffer) {
+        var key []byte
+        var value []byte
+
+        var keyFinished = false
+        for  index < len(buffer) && !keyFinished  {
+            if buffer[index] == LINE_FEED_BYTE_NUMBER {
+                keyFinished = true
+            } else {
+                key = append(key, buffer[index])
+            }
+            index += 1
+        }
+
+        var valueFinished = false
+        for  index < len(buffer) && !valueFinished  {
+            if buffer[index] == LINE_FEED_BYTE_NUMBER {
+                valueFinished = true
+            } else {
+                value = append(value, buffer[index])
+            }
+            index += 1
+        }
+
+        if len(key) != 0 && len(value) != 0 {
+            cache[string(key)] = value
+        }
+    }
+
+    return nil, cache
+}
+
 
 func splitFromStartIndexToCRLF(startIndex int, message []byte) []byte {
     var deserialized []byte 

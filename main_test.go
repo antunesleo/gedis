@@ -81,3 +81,23 @@ func TestBinaryAdventures(t *testing.T) {
     }
     fmt.Println()
 }
+
+func TestSaveAndRestoreSnapshot(t *testing.T) {
+	var want = map[string][]byte{
+		"a": []byte("2"),
+		"b": []byte("3"),
+	}
+	err := saveSnapshot(want)
+	if err != nil {
+		t.Errorf("error on saving snapshot %e", err)
+	}
+	err, got := restoreSnapshot()
+	if err != nil {
+		t.Errorf("error on restoring snapshot %e", err)		
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %q, wanted %q", got, want)
+	}
+
+}
