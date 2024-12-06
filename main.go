@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 )
 
 const SIMPLE_STRING_BYTE_NUMBER = 43 // +
@@ -41,7 +42,7 @@ func saveSnapshot(cache map[string][]byte) error {
 }
 
 func restoreSnapshot() (error, map[string][]byte) {
-    cache := map[string][]byte{}
+    innerCache := map[string][]byte{}
     fil, err := os.Open("snapshop.gedis")
     if err != nil {
         return err, nil
@@ -78,11 +79,11 @@ func restoreSnapshot() (error, map[string][]byte) {
         }
 
         if len(key) != 0 && len(value) != 0 {
-            cache[string(key)] = value
+            innerCache[string(key)] = value
         }
     }
 
-    return nil, cache
+    return nil, innerCache
 }
 
 
@@ -277,7 +278,19 @@ func cmdIncr(message[][]byte) []byte {
     return serializerInteger64(newValue)
 }
 
+func periodicallySaveSnapshot() {
+    for {
+        time.Sleep(5 * time.Second)
+        saveSnapshot(cache)
+    }
+}
+
 func main() {
+    err, newCache := restoreSnapshot()
+    if err == nil {
+        cache = newCache
+    }
+
     listerner, err := net.Listen("tcp", "localhost:6379")
     if err != nil {
         fmt.Println(err)
@@ -290,6 +303,7 @@ func main() {
             // handle error
         }
         go handleConnection(conn)
+        go periodicallySaveSnapshot()
     }    
 }
 
