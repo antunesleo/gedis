@@ -100,14 +100,6 @@ func splitFromStartIndexToCRLF(startIndex int, message []byte) []byte {
     return deserialized
 }
 
-func deserializeSimpleString(startIndex int, message []byte) [][]byte {
-    return [][]byte{splitFromStartIndexToCRLF(startIndex, message)}
-}
-
-func deserializeError(startIndex int, message []byte) [][]byte {
-    return  [][]byte{splitFromStartIndexToCRLF(startIndex, message)}
-}
-
 
 func deserializeBulkString(startIndex int, message []byte) [][]byte {
     moveForward := true
@@ -149,7 +141,13 @@ func isNumeric(c byte) bool {
 }
 
 
-func deserializeArray(startIndex int, message []byte) [][]byte {
+type Deserializer interface {
+    deserialize(message []byte) [][]byte
+}
+
+type ArrayDeserializer struct {}
+func (d ArrayDeserializer) deserialize(message []byte) [][]byte {
+    startIndex := 1
     var deserializedArray [][]byte
 
     for startIndex < len(message) {
@@ -172,20 +170,35 @@ func deserializeArray(startIndex int, message []byte) [][]byte {
     return deserializedArray
 }
 
-func deserialize(message []byte) [][]byte {
+type SimpleStringDeserializer struct{}
+func (d SimpleStringDeserializer) deserialize(message []byte) [][]byte {
+    return [][]byte{splitFromStartIndexToCRLF(1, message)}
+}
+
+type ErrorDeserializer struct{}
+func (d ErrorDeserializer) deserialize(message []byte) [][]byte {
+    return  [][]byte{splitFromStartIndexToCRLF(1, message)}
+}
+
+type BulkStringDeserializer struct{}
+func (d BulkStringDeserializer) deserialize(message []byte) [][]byte {
+    return deserializeBulkString(1, message)
+}
+
+func getDeserializer(message []byte) (Deserializer, error) {
     if message[0] == ARRAY_STRING_BYTE_NUMBER {
-        return deserializeArray(1, message)
+        return ArrayDeserializer{}, nil
     }
     if message[0] == SIMPLE_STRING_BYTE_NUMBER {
-        return deserializeSimpleString(1, message)
+        return SimpleStringDeserializer{}, nil
     }
     if message[0] == ERROR_STRING_BYTE_NUMBER {
-        return deserializeError(1, message)
+        return ErrorDeserializer{}, nil
     }
     if message[0] == BULK_STRING_BYTE_NUMBER {
-        return deserializeBulkString(1, message)
+        return BulkStringDeserializer{}, nil
     }
-    return [][]byte{}
+    return nil, fmt.Errorf("no deserializer for")
 }
 
 func serializeSimpleStringFromByteArray(message []byte) []byte {
@@ -349,7 +362,11 @@ func handleConnection(conn net.Conn) {
             return
         }
 
-        message := deserialize(buffer[:bytesNumber])
+        deserializer, getDesError := getDeserializer(buffer[:bytesNumber])
+        if getDesError != nil {
+            continue
+        }
+        message := deserializer.deserialize(buffer[:bytesNumber])
         command, getCommandErr := getCommand(message)
 
         var result []byte
