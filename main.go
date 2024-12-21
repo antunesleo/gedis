@@ -342,6 +342,7 @@ func handleConnection(conn net.Conn) {
 
     buffer := make([]byte, 8192)
     for {
+        // #TODO this read op is not safe as we don´t know where the message ends. this needs to be refactored.
         bytesNumber, connReadErr := conn.Read(buffer)
         if connReadErr != nil {
             fmt.Println("Error:", connReadErr)
