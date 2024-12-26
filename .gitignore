@@ -27,3 +27,6 @@ go.work.sum
 gedis
 snapshop.gedis
 client_send_get
+client_send_many_set
+client_send_set
+client_send_set_with_giant_value

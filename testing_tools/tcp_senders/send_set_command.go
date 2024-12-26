@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-func SendGetCommand() {
+func SendSetCommand() {
 	// Connect to the TCP server
 	conn, err := net.Dial("tcp", "localhost:6379")
 	if err != nil {
@@ -15,8 +15,7 @@ func SendGetCommand() {
 	}
 	defer conn.Close()
 
-	// Send the string to the server
-	message := "*2\r\n$3\r\nget\r\n$3\r\nkey\r\n"
+	message := "*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$29\r\nmylonglonglongsodamnlongvalue\r\n"
 	_, err = conn.Write([]byte(message))
 	if err != nil {
 		fmt.Println("Error sending message:", err)
