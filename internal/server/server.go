@@ -393,33 +393,52 @@ type CommandBuffer struct {
     data []byte
 }
 
-func (c *CommandBuffer) extractMessage() (error, []byte) {
+func (c *CommandBuffer) ExtractMessage() ([]byte, error) {
     if len(c.data) == 0 { 
-        return errors.New("no data in buffer"), []byte{}
+        return []byte{}, errors.New("serialization error: no data in buffer")
     }
 
     for i, item := range c.data {
         if item == SIMPLE_STRING_BYTE_NUMBER {
             startIndex := i
-            err, endIndex := c.serializeSimpleString(startIndex)
+            endIndex, err := c.getSimpleStringEndIndex(startIndex)
             if err != nil {
-                return err, []byte{}
+                return []byte{}, err
             }
-            newData := []byte{}
-            for i := startIndex; i <= endIndex; i++ {
-                newData = append(newData, c.data[i])
-            }
-            for i := 0; i <= endIndex; i++ {
-                c.data[i] = 0
-            }
-            return nil, newData
+            newData := c.copyBytesFromBuffer(startIndex, endIndex)
+            c.rearrengeBuffer(endIndex)
+            return newData, nil
         }
     }
 
-    return errors.New("no line feed found"), []byte{}
+    return []byte{}, errors.New("serialization error: unknown first byte data type")
 }
 
-func (c *CommandBuffer) serializeSimpleString(startIndex int) (error, int) {
+func (c *CommandBuffer) copyBytesFromBuffer(startIndex int, endIndex int) []byte {
+	newData := []byte{}
+	for i := startIndex; i <= endIndex; i++ {
+		newData = append(newData, c.data[i])
+	}
+    return newData
+}
+
+func (c *CommandBuffer) rearrengeBuffer(endIndex int) {
+	for i := 0; i <= endIndex; i++ {
+		c.data[i] = 0
+	}
+	emptyIndex := 0
+	for leftBehindIndex := endIndex + 1; leftBehindIndex < len(c.data); leftBehindIndex++ {
+		if c.data[leftBehindIndex] != 0 {
+			c.data[emptyIndex] = c.data[leftBehindIndex]
+			c.data[leftBehindIndex] = 0
+			emptyIndex += 1
+		} else {
+			break
+		}
+	}
+}
+
+func (c *CommandBuffer) getSimpleStringEndIndex(startIndex int) (int, error) {
     crlfFound := false
     endIndex := startIndex + 1
     for !crlfFound && endIndex < len(c.data)-1 {
@@ -429,9 +448,9 @@ func (c *CommandBuffer) serializeSimpleString(startIndex int) (error, int) {
         endIndex += 1
     }
     if crlfFound {
-        return nil, endIndex
+        return endIndex, nil
     }
-    return errors.New("serialization errror: no crlf found"), -1
+    return -1, errors.New("serialization errror: no crlf found")
 }
 
 func (c *CommandBuffer) ingest(bytes []byte) {

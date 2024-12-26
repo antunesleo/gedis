@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -149,43 +150,71 @@ func makeBufferWithData(data []byte) *CommandBuffer {
 }
 
 
-var messages = []struct {
-	bufferData []byte
-	extractedMessage []byte
-} {
-	{[]byte("+OK\r\n"), []byte("+OK\r\n")},
-	{[]byte("aa+OK\r\n"), []byte("+OK\r\n")},
-	{[]byte("+OK\r\naa"), []byte("+OK\r\n")},
+func assertBufferData(t *testing.T, buffer *CommandBuffer, want []byte) {
+	for i := 0; i < len(want); i++ {
+		if buffer.data[i] != want[i] {
+			t.Fatalf("got %q, wanted %q", buffer.data, want)
+		}
+	}
+	fmt.Println("buffer.data", buffer.data)
+	fmt.Println("want", want)
+
+	for j := len(want); j < len(buffer.data); j++ {
+		if buffer.data[j] != 0 {
+			t.Fatalf("wanted 0 got %q on index %d", buffer.data[j], j)
+		}
+	}
 }
+
+
 func TestCommandBufferExtractSimpleStringMessage(t *testing.T) {
-	for _, message := range messages {
-		buffer := makeBufferWithData(message.bufferData)
-		err, got := buffer.extractMessage()
-		if err != nil {
-			t.Errorf("error on extracting message %e", err)
-		}
-		want := message.extractedMessage
-		fmt.Println("got", got)
-		fmt.Println("want", want)
+	var testcases = []struct {
+		name string
+		bufferData []byte
+		extractedMessage []byte
+		remainingBufferData []byte
+	} {
+		{"base case", []byte("+OK\r\n"), []byte("+OK\r\n"), []byte("")},
+		{"noise in the begning", []byte("aa+OK\r\n"), []byte("+OK\r\n"), []byte("")},
+		{"noise in the end", []byte("+OK\r\naa"), []byte("+OK\r\n"), []byte("aa")},
+	}
+	for _, tt := range testcases {
+		t.Run(tt.name, func(t *testing.T) {
+			buffer := makeBufferWithData(tt.bufferData)
+			got, err := buffer.ExtractMessage()
+			if err != nil {
+				t.Errorf("error on extracting message %e", err)
+			}
+			want := tt.extractedMessage
 
-		if !reflect.DeepEqual(got, want) {
-			t.Errorf("got %q, wanted %q", got, want)
-		}
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("got %q, wanted %q", got, want)
+			}
+
+			assertBufferData(t, buffer, tt.remainingBufferData)
+		})
 	}
 }
 
 
-var unserializableMessages = [][]byte {
-	[]byte("+OK"),
-	[]byte("OK\r\n"),
-}
+
 func TestCommandBufferExtractSimpleStringMessageMustFailSerialization(t *testing.T) {
-	for _, unserializableMessage := range unserializableMessages {
-		buffer := NewCommandBuffer()
-		buffer.data = unserializableMessage
-		err, _ := buffer.extractMessage()
-		if err == nil {
-			t.Error("serialization should have failed")
-		}
+	var testcases = []struct {
+		name string
+		bufferData []byte
+		wantedError error
+	} {
+		{"No ending crlf", []byte("+OK"), errors.New("serialization errror: no crlf found")},
+		{"No first byte data type", []byte("OK\r\n"), errors.New("serialization error: unknown first byte data type")},
 	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			buffer := makeBufferWithData(tc.bufferData)
+			_, err := buffer.ExtractMessage()
+			if err.Error() != tc.wantedError.Error() {
+				t.Errorf("wanted %q got %q", tc.wantedError, err)
+			}
+		})
+	}
+
 }
