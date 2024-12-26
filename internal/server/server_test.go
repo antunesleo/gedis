@@ -196,6 +196,35 @@ func TestCommandBufferExtractSimpleStringMessage(t *testing.T) {
 	}
 }
 
+func TestCommandBufferExtractErrorMessage(t *testing.T) {
+	var testcases = []struct {
+		name string
+		bufferData []byte
+		extractedMessage []byte
+		remainingBufferData []byte
+	} {
+		{"base case", []byte("-SOMEERROR\r\n"), []byte("-SOMEERROR\r\n"), []byte("")},
+		{"noise in the begning", []byte("aa-SOMEERROR\r\n"), []byte("-SOMEERROR\r\n"), []byte("")},
+		{"noise in the end", []byte("-SOMEERROR\r\naa"), []byte("-SOMEERROR\r\n"), []byte("aa")},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			buffer := makeBufferWithData(tc.bufferData)
+			got, err := buffer.Extract()
+			if err != nil {
+				t.Errorf("error on extracting message %e", err)
+			}
+			want := tc.extractedMessage
+
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("got %q, wanted %q", got, want)
+			}
+
+			assertBufferData(t, buffer, tc.remainingBufferData)
+		})
+	}
+}
+
 
 
 func TestCommandBufferExtractSimpleStringMessageMustFailSerialization(t *testing.T) {
@@ -206,6 +235,27 @@ func TestCommandBufferExtractSimpleStringMessageMustFailSerialization(t *testing
 	} {
 		{"No ending crlf", []byte("+OK"), errors.New("serialization errror: no crlf found")},
 		{"No first byte data type", []byte("OK\r\n"), errors.New("serialization error: unknown first byte data type")},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			buffer := makeBufferWithData(tc.bufferData)
+			_, err := buffer.Extract()
+			if err.Error() != tc.wantedError.Error() {
+				t.Errorf("wanted %q got %q", tc.wantedError, err)
+			}
+		})
+	}
+
+}
+
+func TestCommandBufferExtractErrorMessageMustFailSerialization(t *testing.T) {
+	var testcases = []struct {
+		name string
+		bufferData []byte
+		wantedError error
+	} {
+		{"No ending crlf", []byte("-SOMEERROR"), errors.New("serialization errror: no crlf found")},
+		{"No first byte data type", []byte("SOMEERROR\r\n"), errors.New("serialization error: unknown first byte data type")},
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {

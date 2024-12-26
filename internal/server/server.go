@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"slices"
 	"strconv"
 	"time"
 )
@@ -398,10 +399,23 @@ func (c *MessageBuffer) Extract() ([]byte, error) {
         return []byte{}, errors.New("serialization error: no data in buffer")
     }
 
+
+
     for i, item := range c.data {
-        if item == SIMPLE_STRING_BYTE_NUMBER {
-            startIndex := i
-            endIndex, err := c.getSimpleStringEndIndex(startIndex)
+        startIndex := i
+        knownFirstBytes := []byte{SIMPLE_STRING_BYTE_NUMBER, ERROR_STRING_BYTE_NUMBER}
+        if slices.Contains(knownFirstBytes, item) {
+            
+            var endIndex int
+            var err error
+ 
+            if item == SIMPLE_STRING_BYTE_NUMBER {
+                endIndex, err = c.getSimpleStringOrErrorEndIndex(startIndex)
+
+            } else if item == ERROR_STRING_BYTE_NUMBER {
+                endIndex, err = c.getSimpleStringOrErrorEndIndex(startIndex)
+            } 
+
             if err != nil {
                 return []byte{}, err
             }
@@ -438,7 +452,7 @@ func (c *MessageBuffer) rearrengeBuffer(endIndex int) {
 	}
 }
 
-func (c *MessageBuffer) getSimpleStringEndIndex(startIndex int) (int, error) {
+func (c *MessageBuffer) getSimpleStringOrErrorEndIndex(startIndex int) (int, error) {
     crlfFound := false
     endIndex := startIndex + 1
     for !crlfFound && endIndex < len(c.data)-1 {
