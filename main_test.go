@@ -9,7 +9,8 @@ import (
 func TestDeserializeSimpleString(t *testing.T) {
 	strMessage := "+hello world\r\n"
 	byteArrMessage := []byte(strMessage)
-	got := deserialize(byteArrMessage)
+	deserializer, _ := getDeserializer(byteArrMessage)
+	got := deserializer.deserialize(byteArrMessage)
 	want := [][]byte{[]byte("hello world")}
 
 	if !reflect.DeepEqual(got, want) {
@@ -20,7 +21,8 @@ func TestDeserializeSimpleString(t *testing.T) {
 func TestDeserializeError(t *testing.T) {
 	strMessage := "-Error message\r\n"
 	byteArrMessage := []byte(strMessage)
-	got := deserialize(byteArrMessage)
+	deserializer, _ := getDeserializer(byteArrMessage)
+	got := deserializer.deserialize(byteArrMessage)
 	want := [][]byte{[]byte("Error message")}
 
 	if !reflect.DeepEqual(got, want) {
@@ -39,7 +41,8 @@ var bulkstringtests = []struct {
 }
 func TestDeserializeBulkSring(t *testing.T) {
 	for _, tt := range bulkstringtests {
-		got := deserialize(tt.in)
+		deserializer, _ := getDeserializer(tt.in)
+		got := deserializer.deserialize(tt.in)
 		want := tt.out
 
 		if !reflect.DeepEqual(got, want) {
@@ -58,7 +61,8 @@ var arraytests = []struct {
 }
 func TestDeserializeArray(t *testing.T) {
 	for _, tt := range arraytests {
-		got := deserialize(tt.in)
+		deserializer, _ := getDeserializer(tt.in)
+		got := deserializer.deserialize(tt.in)
 		want := tt.out
 
 		if !reflect.DeepEqual(got, want) {
