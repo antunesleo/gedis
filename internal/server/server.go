@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"bytes"
@@ -328,7 +328,7 @@ func periodicallySaveSnapshot() {
     }
 }
 
-func main() {
+func Start() {
     restoreErr, newCache := restoreSnapshot()
     if restoreErr == nil {
         cache = newCache
