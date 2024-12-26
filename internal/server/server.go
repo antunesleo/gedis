@@ -389,11 +389,11 @@ func handleConnection(conn net.Conn) {
 }
 
 
-type CommandBuffer struct {
+type MessageBuffer struct {
     data []byte
 }
 
-func (c *CommandBuffer) ExtractMessage() ([]byte, error) {
+func (c *MessageBuffer) Extract() ([]byte, error) {
     if len(c.data) == 0 { 
         return []byte{}, errors.New("serialization error: no data in buffer")
     }
@@ -414,7 +414,7 @@ func (c *CommandBuffer) ExtractMessage() ([]byte, error) {
     return []byte{}, errors.New("serialization error: unknown first byte data type")
 }
 
-func (c *CommandBuffer) copyBytesFromBuffer(startIndex int, endIndex int) []byte {
+func (c *MessageBuffer) copyBytesFromBuffer(startIndex int, endIndex int) []byte {
 	newData := []byte{}
 	for i := startIndex; i <= endIndex; i++ {
 		newData = append(newData, c.data[i])
@@ -422,7 +422,7 @@ func (c *CommandBuffer) copyBytesFromBuffer(startIndex int, endIndex int) []byte
     return newData
 }
 
-func (c *CommandBuffer) rearrengeBuffer(endIndex int) {
+func (c *MessageBuffer) rearrengeBuffer(endIndex int) {
 	for i := 0; i <= endIndex; i++ {
 		c.data[i] = 0
 	}
@@ -438,7 +438,7 @@ func (c *CommandBuffer) rearrengeBuffer(endIndex int) {
 	}
 }
 
-func (c *CommandBuffer) getSimpleStringEndIndex(startIndex int) (int, error) {
+func (c *MessageBuffer) getSimpleStringEndIndex(startIndex int) (int, error) {
     crlfFound := false
     endIndex := startIndex + 1
     for !crlfFound && endIndex < len(c.data)-1 {
@@ -453,10 +453,10 @@ func (c *CommandBuffer) getSimpleStringEndIndex(startIndex int) (int, error) {
     return -1, errors.New("serialization errror: no crlf found")
 }
 
-func (c *CommandBuffer) ingest(bytes []byte) {
+func (c *MessageBuffer) ingest(bytes []byte) {
     return
 }
 
-func NewCommandBuffer() CommandBuffer {
-    return CommandBuffer{make([]byte, 100)}
+func NewCommandBuffer() MessageBuffer {
+    return MessageBuffer{make([]byte, 100)}
 }

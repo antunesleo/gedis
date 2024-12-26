@@ -141,7 +141,7 @@ func TestSaveAndRestoreSnapshot(t *testing.T) {
 // 	}
 // }
 
-func makeBufferWithData(data []byte) *CommandBuffer {
+func makeBufferWithData(data []byte) *MessageBuffer {
 	buffer := NewCommandBuffer()
 	for i := 0; i < len(data) && i < len(buffer.data); i++ {
 		buffer.data[i] = data[i]
@@ -150,7 +150,7 @@ func makeBufferWithData(data []byte) *CommandBuffer {
 }
 
 
-func assertBufferData(t *testing.T, buffer *CommandBuffer, want []byte) {
+func assertBufferData(t *testing.T, buffer *MessageBuffer, want []byte) {
 	for i := 0; i < len(want); i++ {
 		if buffer.data[i] != want[i] {
 			t.Fatalf("got %q, wanted %q", buffer.data, want)
@@ -181,7 +181,7 @@ func TestCommandBufferExtractSimpleStringMessage(t *testing.T) {
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
 			buffer := makeBufferWithData(tt.bufferData)
-			got, err := buffer.ExtractMessage()
+			got, err := buffer.Extract()
 			if err != nil {
 				t.Errorf("error on extracting message %e", err)
 			}
@@ -210,7 +210,7 @@ func TestCommandBufferExtractSimpleStringMessageMustFailSerialization(t *testing
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			buffer := makeBufferWithData(tc.bufferData)
-			_, err := buffer.ExtractMessage()
+			_, err := buffer.Extract()
 			if err.Error() != tc.wantedError.Error() {
 				t.Errorf("wanted %q got %q", tc.wantedError, err)
 			}
