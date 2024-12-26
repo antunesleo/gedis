@@ -105,3 +105,87 @@ func TestSaveAndRestoreSnapshot(t *testing.T) {
 	}
 
 }
+
+// func TestCommandBufferExtractMessage(t *testing.T) {
+// 	data := []byte("*1\r\n$4\r\nping\r\n")
+// 	buffer := NewCommandBuffer()
+// 	buffer.data = data
+// 	err, got := buffer.extractMessage()
+// 	if err != nil {
+// 		t.Errorf("error on extracting message %e", err)
+// 	}
+// 	want := []byte("*1\r\n$4\r\nping\r\n")
+// 	if !reflect.DeepEqual(got, want) {
+// 		t.Errorf("got %q, wanted %q", got, want)
+// 	}
+// }
+
+// var unserializableMessages = [][]byte {
+// 	[]byte("1\r\n$4\r\nping\r\n"),
+// 	[]byte("*2\r\n$4\r\nping\r\n"),
+// 	[]byte("*1\r\n4\r\nping\r\n"),
+// 	[]byte("*1\r\n$5\r\nping\r\n"),
+// 	[]byte("*1$4\r\nping\r\n"),
+// 	[]byte("*1\r\n$4ping\r\n"),
+// 	[]byte("*1\r\n$4\r\nping"),
+// }
+// func TestCommandBufferExtractMessagePingReturnSerializationError(t *testing.T) {
+// 	for _, unserializableMessage := range unserializableMessages {
+// 		buffer := NewCommandBuffer()
+// 		buffer.data = unserializableMessage
+// 		err, _ := buffer.extractMessage()
+// 		if err == nil {
+// 			t.Error("serialization should have failed")
+// 		}
+// 	}
+// }
+
+func makeBufferWithData(data []byte) *CommandBuffer {
+	buffer := NewCommandBuffer()
+	for i := 0; i < len(data) && i < len(buffer.data); i++ {
+		buffer.data[i] = data[i]
+	}
+	return &buffer
+}
+
+
+var messages = []struct {
+	bufferData []byte
+	extractedMessage []byte
+} {
+	{[]byte("+OK\r\n"), []byte("+OK\r\n")},
+	{[]byte("aa+OK\r\n"), []byte("+OK\r\n")},
+	{[]byte("+OK\r\naa"), []byte("+OK\r\n")},
+}
+func TestCommandBufferExtractSimpleStringMessage(t *testing.T) {
+	for _, message := range messages {
+		buffer := makeBufferWithData(message.bufferData)
+		err, got := buffer.extractMessage()
+		if err != nil {
+			t.Errorf("error on extracting message %e", err)
+		}
+		want := message.extractedMessage
+		fmt.Println("got", got)
+		fmt.Println("want", want)
+
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("got %q, wanted %q", got, want)
+		}
+	}
+}
+
+
+var unserializableMessages = [][]byte {
+	[]byte("+OK"),
+	[]byte("OK\r\n"),
+}
+func TestCommandBufferExtractSimpleStringMessageMustFailSerialization(t *testing.T) {
+	for _, unserializableMessage := range unserializableMessages {
+		buffer := NewCommandBuffer()
+		buffer.data = unserializableMessage
+		err, _ := buffer.extractMessage()
+		if err == nil {
+			t.Error("serialization should have failed")
+		}
+	}
+}

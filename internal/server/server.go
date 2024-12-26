@@ -387,3 +387,57 @@ func handleConnection(conn net.Conn) {
         }
     }
 }
+
+
+type CommandBuffer struct {
+    data []byte
+}
+
+func (c *CommandBuffer) extractMessage() (error, []byte) {
+    if len(c.data) == 0 { 
+        return errors.New("no data in buffer"), []byte{}
+    }
+
+    for i, item := range c.data {
+        if item == SIMPLE_STRING_BYTE_NUMBER {
+            startIndex := i
+            err, endIndex := c.serializeSimpleString(startIndex)
+            if err != nil {
+                return err, []byte{}
+            }
+            newData := []byte{}
+            for i := startIndex; i <= endIndex; i++ {
+                newData = append(newData, c.data[i])
+            }
+            for i := 0; i <= endIndex; i++ {
+                c.data[i] = 0
+            }
+            return nil, newData
+        }
+    }
+
+    return errors.New("no line feed found"), []byte{}
+}
+
+func (c *CommandBuffer) serializeSimpleString(startIndex int) (error, int) {
+    crlfFound := false
+    endIndex := startIndex + 1
+    for !crlfFound && endIndex < len(c.data)-1 {
+        if c.data[endIndex] == CARRIAGE_RETURN_BYTE_NUMBER && c.data[endIndex+1] == LINE_FEED_BYTE_NUMBER {
+            crlfFound = true
+        }
+        endIndex += 1
+    }
+    if crlfFound {
+        return nil, endIndex
+    }
+    return errors.New("serialization errror: no crlf found"), -1
+}
+
+func (c *CommandBuffer) ingest(bytes []byte) {
+    return
+}
+
+func NewCommandBuffer() CommandBuffer {
+    return CommandBuffer{make([]byte, 100)}
+}
