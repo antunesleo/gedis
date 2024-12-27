@@ -457,22 +457,24 @@ func  ValidateCarriageReturnAndLineFeed(data []byte, carriageReturnIndex int) (i
     return lineFeedIndex, nil
 }
 
-func Serialize(data []byte, startIndex int) (int, int, error) {
+
+
+func Deserialize(data []byte, startIndex int) (int, int, error) {
     item := data[startIndex]
     var messageEndIndex int
     var err error
     if item == SIMPLE_STRING_BYTE_NUMBER {
-        serializer := SimpleStringSerializer{}
-        messageEndIndex, err = serializer.Serialize(data, startIndex)
+        serializer := SimpleStringDeserializer2{}
+        messageEndIndex, err = serializer.Deserialize(data, startIndex)
     } else if item == ERROR_STRING_BYTE_NUMBER {
-        serializer := ErrorSerializer{}
-        messageEndIndex, err = serializer.Serialize(data, startIndex)
+        serializer := ErrorDeserializer2{}
+        messageEndIndex, err = serializer.Deserialize(data, startIndex)
     } else if item == BULK_STRING_BYTE_NUMBER {
-        serializer := BulkStringSerializer{}
-        messageEndIndex, err = serializer.Serialize(data, startIndex)
+        serializer := BulkStringDeserializer2{}
+        messageEndIndex, err = serializer.Deserialize(data, startIndex)
     } else if item == ARRAY_STRING_BYTE_NUMBER {
-        serializer := ArraySerializer{}
-        messageEndIndex, err = serializer.Serialize(data, startIndex)
+        serializer := ArrayDeserializer2{}
+        messageEndIndex, err = serializer.Deserialize(data, startIndex)
     }
 
     if err != nil {
@@ -481,22 +483,22 @@ func Serialize(data []byte, startIndex int) (int, int, error) {
     return startIndex, messageEndIndex, nil
 }
 
-type Serializer interface {
-    Serialize(data []byte, startIndex int) (int, error)
+type Deserializer2 interface {
+    Deserialize(data []byte, startIndex int) (int, error)
 }
 
-type SimpleStringSerializer struct {}
-func (s SimpleStringSerializer) Serialize(data []byte, startIndex int) (int, error) {
+type SimpleStringDeserializer2 struct {}
+func (s SimpleStringDeserializer2) Deserialize(data []byte, startIndex int) (int, error) {
     return FindIndexAfterCrlf(data, startIndex+1)
 }
 
-type ErrorSerializer struct {}
-func (s ErrorSerializer) Serialize(data []byte, startIndex int) (int, error) {
+type ErrorDeserializer2 struct {}
+func (s ErrorDeserializer2) Deserialize(data []byte, startIndex int) (int, error) {
     return FindIndexAfterCrlf(data, startIndex+1)
 }
 
-type BulkStringSerializer struct {}
-func (s BulkStringSerializer) Serialize(data []byte, startIndex int) (int, error) {
+type BulkStringDeserializer2 struct {}
+func (s BulkStringDeserializer2) Deserialize(data []byte, startIndex int) (int, error) {
     startLengthIndex := startIndex + 1
     length, endLengthIndex, err := ValidateNumberOfElements(data, startLengthIndex)
 
@@ -523,8 +525,8 @@ func (s BulkStringSerializer) Serialize(data []byte, startIndex int) (int, error
     return -1, errors.New("serialization errror: no crlf found")      
 }
 
-type ArraySerializer struct {}
-func (s ArraySerializer) Serialize(data []byte, startIndex int) (int, error) {
+type ArrayDeserializer2 struct {}
+func (s ArrayDeserializer2) Deserialize(data []byte, startIndex int) (int, error) {
 
     startLengthIndex := startIndex + 1
     length, endLengthIndex, err := ValidateNumberOfElements(data, startLengthIndex)
@@ -540,7 +542,7 @@ func (s ArraySerializer) Serialize(data []byte, startIndex int) (int, error) {
 
     endIndex := lineFeedIndex
     for i := 0; i < length; i++ {
-        _, currEndIndex, err := Serialize(data, endIndex+1)
+        _, currEndIndex, err := Deserialize(data, endIndex+1)
         if err != nil {
             return -1, err
         }
@@ -550,11 +552,11 @@ func (s ArraySerializer) Serialize(data []byte, startIndex int) (int, error) {
     return endIndex, nil
 }
 
-type SerializationBuffer struct {
+type DeserializationBuffer struct {
     data []byte
 }
 
-func (sb *SerializationBuffer) Dissipate() ([]byte, error) {
+func (sb *DeserializationBuffer) Dissipate() ([]byte, error) {
 	if len(sb.data) == 0 {
 		return []byte{}, errors.New("serialization error: no data in buffer")
 	}
@@ -567,7 +569,7 @@ func (sb *SerializationBuffer) Dissipate() ([]byte, error) {
             ARRAY_STRING_BYTE_NUMBER,
         }
         if slices.Contains(knownFirstBytes, _byte) {
-            messageStartIndex, messageEndIndex, err := Serialize(sb.data, i)
+            messageStartIndex, messageEndIndex, err := Deserialize(sb.data, i)
             if err != nil {
                 return []byte{}, err
             }
@@ -580,7 +582,7 @@ func (sb *SerializationBuffer) Dissipate() ([]byte, error) {
 	return []byte{}, errors.New("serialization error: unknown first byte data type")
 }
 
-func (c *SerializationBuffer) copyBytesFromBuffer(startIndex int, endIndex int) []byte {
+func (c *DeserializationBuffer) copyBytesFromBuffer(startIndex int, endIndex int) []byte {
 	newData := []byte{}
 	for i := startIndex; i <= endIndex; i++ {
 		newData = append(newData, c.data[i])
@@ -588,7 +590,7 @@ func (c *SerializationBuffer) copyBytesFromBuffer(startIndex int, endIndex int) 
     return newData
 }
 
-func (c *SerializationBuffer) rearrengeBuffer(endIndex int) {
+func (c *DeserializationBuffer) rearrengeBuffer(endIndex int) {
 	for i := 0; i <= endIndex; i++ {
 		c.data[i] = 0
 	}
@@ -604,10 +606,10 @@ func (c *SerializationBuffer) rearrengeBuffer(endIndex int) {
 	}
 }
 
-func (c *SerializationBuffer) Absorb(bytes []byte) {
+func (c *DeserializationBuffer) Absorb(bytes []byte) {
     return
 }
 
-func NewSerializationBuffer() SerializationBuffer {
-    return SerializationBuffer{make([]byte, 100)}
+func NewDeserializationBuffer() DeserializationBuffer {
+    return DeserializationBuffer{make([]byte, 100)}
 }

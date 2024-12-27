@@ -107,8 +107,8 @@ func TestSaveAndRestoreSnapshot(t *testing.T) {
 
 }
 
-func makeSerializationBufferWithData(data []byte) *SerializationBuffer {
-	buffer := NewSerializationBuffer()
+func makeSerializationBufferWithData(data []byte) *DeserializationBuffer {
+	buffer := NewDeserializationBuffer()
 	for i := 0; i < len(data) && i < len(buffer.data); i++ {
 		buffer.data[i] = data[i]
 	}
@@ -116,7 +116,7 @@ func makeSerializationBufferWithData(data []byte) *SerializationBuffer {
 }
 
 
-func assertBufferData(t *testing.T, buffer *SerializationBuffer, want []byte) {
+func assertBufferData(t *testing.T, buffer *DeserializationBuffer, want []byte) {
 	for i := 0; i < len(want); i++ {
 		if buffer.data[i] != want[i] {
 			t.Fatalf("got %q, wanted %q", buffer.data, want)
