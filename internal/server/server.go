@@ -419,6 +419,80 @@ func (s ErrorSerializer) Serialize(data []byte, startIndex int) (int, error) {
     return FindIndexAfterCrlf(data, startIndex+1)
 }
 
+func GetEndLenghtIndex(data []byte, startLengthIndex int) (int, error) {
+	endLengthIndex := startLengthIndex
+	hasCrfl := false
+	for endLengthIndex < len(data)-2 {
+		if data[endLengthIndex+1] == CARRIAGE_RETURN_BYTE_NUMBER && data[endLengthIndex+2] == LINE_FEED_BYTE_NUMBER {
+			hasCrfl = true
+			break
+		}
+		endLengthIndex += 1
+	}
+	if !hasCrfl {
+		return 0, errors.New("serialization errror: no crlf found")
+	}
+	return endLengthIndex, nil
+}
+
+func ValidateNumberOfElements(data []byte, startLengthIndex int) (int, int, error) {
+    if startLengthIndex >= len(data) {
+        return -1, -1, errors.New("serialization error: no length found")
+    }
+
+    endLengthIndex, err := GetEndLenghtIndex(data, startLengthIndex)
+    if err != nil {
+    	return -1, -1, err
+    }
+
+    length, err := ByteSliceToInteger(data[startLengthIndex:endLengthIndex+1])
+    if err != nil {
+        return -1, -1, errors.New("serialization error: no length found")
+    }
+
+    return length, endLengthIndex, nil
+}
+
+func  ValidateCarriageReturnAndLineFeed(data []byte, carriageReturnIndex int) (int, error) {
+    if carriageReturnIndex >= len(data) {
+        return -1, errors.New("serialization error: no carriage return found")
+    }
+
+    lineFeedIndex := carriageReturnIndex + 1
+    if lineFeedIndex >= len(data) {
+        return -1, errors.New("serialization error: no line feed found")
+    }
+    return lineFeedIndex, nil
+}
+
+type BulkStringSerializer struct {}
+func (s BulkStringSerializer) Serialize(data []byte, startIndex int) (int, error) {
+    startLengthIndex := startIndex + 1
+    length, endLengthIndex, err := ValidateNumberOfElements(data, startLengthIndex)
+
+    if err != nil {
+        return -1, err
+    }
+
+    lineFeedIndex, err := ValidateCarriageReturnAndLineFeed(data, endLengthIndex+1)
+    if err != nil {
+        return -1, err
+    }
+
+    endIndex := lineFeedIndex + length
+
+    if endIndex >= len(data)-2 {
+        return -1, errors.New("serialization errror: no crlf found") 
+    }
+
+
+    if data[endIndex+1] == CARRIAGE_RETURN_BYTE_NUMBER && data[endIndex+2] == LINE_FEED_BYTE_NUMBER {
+        return endIndex+2, nil
+    }
+
+    return -1, errors.New("serialization errror: no crlf found")      
+}
+
 
 type SerializationBuffer struct {
     data []byte
@@ -461,7 +535,8 @@ func (sb *SerializationBuffer) validate(startIndex int) (int, int, error) {
         serializer := ErrorSerializer{}
         messageEndIndex, err = serializer.Serialize(sb.data, startIndex)
     } else if item == BULK_STRING_BYTE_NUMBER {
-        messageEndIndex, err = sb.getBulkStringEndIndex(startIndex)
+        serializer := BulkStringSerializer{}
+        messageEndIndex, err = serializer.Serialize(sb.data, startIndex)
     } else if item == ARRAY_STRING_BYTE_NUMBER {
         messageEndIndex, err = sb.getArrayStringEndIndex(startIndex)
     }
