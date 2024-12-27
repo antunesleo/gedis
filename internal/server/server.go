@@ -451,7 +451,7 @@ func  ValidateCarriageReturnAndLineFeed(data []byte, carriageReturnIndex int) (i
     return lineFeedIndex, nil
 }
 
-func Validate(data []byte, startIndex int) (int, int, error) {
+func Serialize(data []byte, startIndex int) (int, int, error) {
     item := data[startIndex]
     var messageEndIndex int
     var err error
@@ -534,7 +534,7 @@ func (s ArraySerializer) Serialize(data []byte, startIndex int) (int, error) {
 
     endIndex := lineFeedIndex
     for i := 0; i < length; i++ {
-        _, currEndIndex, err := Validate(data, endIndex+1)
+        _, currEndIndex, err := Serialize(data, endIndex+1)
         if err != nil {
             return -1, err
         }
@@ -569,7 +569,7 @@ func (sb *SerializationBuffer) Dissipate() ([]byte, error) {
             ARRAY_STRING_BYTE_NUMBER,
         }
         if slices.Contains(knownFirstBytes, _byte) {
-            messageStartIndex, messageEndIndex, err := Validate(sb.data, i)
+            messageStartIndex, messageEndIndex, err := Serialize(sb.data, i)
             if err != nil {
                 return []byte{}, err
             }
