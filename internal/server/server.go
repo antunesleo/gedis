@@ -304,19 +304,19 @@ func (command CommandIncr) execute(message[][]byte) []byte {
 
 func getCommand(message[][]byte) (Command, error) {
     if bytes.Equal(message[0], SET_BYTE_ARRAY) {
-        return CommandSet{}, nil
+        return &CommandSet{}, nil
     } else if bytes.Equal(message[0], GET_BYTE_ARRAY) {
-        return CommandGet{}, nil
+        return &CommandGet{}, nil
     } else if bytes.Equal(message[0], PING_BYTE_ARRAY) {
-        return CommandPing{}, nil
+        return &CommandPing{}, nil
     } else if bytes.Equal(message[0], ECHO_BYTE_ARRAY) {
-        return CommandEcho{}, nil
+        return &CommandEcho{}, nil
     } else if bytes.Equal(message[0], EXISTS_BYTE_ARRAY) {
-        return CommandExists{}, nil
+        return &CommandExists{}, nil
     } else if bytes.Equal(message[0], DEL_BYTE_ARRAY) {
-        return CommandDel{}, nil
+        return &CommandDel{}, nil
     } else if bytes.Equal(message[0], INCR_BYTE_ARRAY) {
-        return CommandIncr{}, nil
+        return &CommandIncr{}, nil
     } else {
         return nil, errors.New("no command found for message")
     }
@@ -349,6 +349,11 @@ func Start() {
         }
         go handleConnection(conn)
     }    
+}
+
+func cmdSet(message[][]byte) []byte {
+    cache[string(message[1])] = message[2]
+    return serializeSimpleStringFromString("OK")
 }
 
 func handleConnection(conn net.Conn) {
