@@ -389,6 +389,12 @@ func handleConnection(conn net.Conn) {
     }
 }
 
+func ByteSliceToInteger(byteSlice []byte) (int, error) {
+    str := string(byteSlice)
+    num, err := strconv.Atoi(str)
+    return num, err
+}
+
 func FindIndexAfterCrlf(data []byte, startIndex int) (int, error) {
     crlfFound := false
     currIndex := startIndex
@@ -543,14 +549,6 @@ func (s ArraySerializer) Serialize(data []byte, startIndex int) (int, error) {
 
     return endIndex, nil
 }
-
-func ByteSliceToInteger(byteSlice []byte) (int, error) {
-    str := string(byteSlice)
-    num, err := strconv.Atoi(str)
-    return num, err
-}
-
-
 
 type SerializationBuffer struct {
     data []byte
