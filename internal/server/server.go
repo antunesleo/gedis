@@ -330,16 +330,17 @@ func periodicallySaveSnapshot() {
 }
 
 func Start() {
-    restoreErr, newCache := restoreSnapshot()
-    if restoreErr == nil {
-        cache = newCache
-    }
+    // restoreErr, newCache := restoreSnapshot()
+    // if restoreErr == nil {
+    //     cache = newCache
+    // }
 
     listerner, listenErr := net.Listen("tcp", "localhost:6379")
     if listenErr != nil {
         fmt.Println(listenErr)
         return
     }
+    // go periodicallySaveSnapshot()
     for {
         conn, acceptErr := listerner.Accept()
         if acceptErr != nil {
@@ -347,7 +348,6 @@ func Start() {
             continue
         }
         go handleConnection(conn)
-        go periodicallySaveSnapshot()
     }    
 }
 
