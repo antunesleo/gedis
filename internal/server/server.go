@@ -625,8 +625,28 @@ func (c *DeserializationBuffer) rearrengeBuffer(endIndex int) {
 	}
 }
 
-func (c *DeserializationBuffer) Absorb(bytes []byte) {
-    return
+func (c *DeserializationBuffer) Absorb(bytes []byte) error {
+    emptyIndex := -1
+    for i, _byte := range c.data {
+        if _byte == 0 {
+            emptyIndex = i
+            break
+        }
+    }
+    if emptyIndex < 0 {
+        return errors.New("serialization error: buffer is full")
+    }
+    
+    availableSlots := len(c.data) - emptyIndex
+    if len(bytes) > availableSlots {
+        return errors.New("serialization error: buffer is full")
+    }
+
+    for _, _byte := range bytes {
+        c.data[emptyIndex] = _byte
+        emptyIndex += 1
+    }
+    return nil
 }
 
 func NewDeserializationBuffer() DeserializationBuffer {
