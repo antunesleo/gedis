@@ -297,3 +297,24 @@ func TestCommandBufferExtractErrorMessageMustFailSerialization(t *testing.T) {
 	}
 
 }
+
+
+func TestMessageBufferExtractBulkStringMessageMustFailSerialization(t *testing.T) {
+	var testcases = []struct {
+		name string
+		bufferData []byte
+		wantedError error
+	} {
+		{"No ending crlf", []byte("$5\r\nhello"), errors.New("serialization errror: no crlf found")},
+		{"No first byte data type", []byte("5\r\nhello"), errors.New("serialization error: unknown first byte data type")},
+	}
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			buffer := makeBufferWithData(tc.bufferData)
+			_, err := buffer.Extract()
+			if err.Error() != tc.wantedError.Error() {
+				t.Errorf("wanted %q got %q", tc.wantedError, err)
+			}
+		})
+	}
+}
