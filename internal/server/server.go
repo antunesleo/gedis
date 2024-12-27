@@ -399,11 +399,9 @@ func (c *MessageBuffer) Extract() ([]byte, error) {
         return []byte{}, errors.New("serialization error: no data in buffer")
     }
 
-
-
     for i, item := range c.data {
         startIndex := i
-        knownFirstBytes := []byte{SIMPLE_STRING_BYTE_NUMBER, ERROR_STRING_BYTE_NUMBER}
+        knownFirstBytes := []byte{SIMPLE_STRING_BYTE_NUMBER, ERROR_STRING_BYTE_NUMBER, BULK_STRING_BYTE_NUMBER}
         if slices.Contains(knownFirstBytes, item) {
             
             var endIndex int
@@ -411,10 +409,13 @@ func (c *MessageBuffer) Extract() ([]byte, error) {
  
             if item == SIMPLE_STRING_BYTE_NUMBER {
                 endIndex, err = c.getSimpleStringOrErrorEndIndex(startIndex)
-
             } else if item == ERROR_STRING_BYTE_NUMBER {
                 endIndex, err = c.getSimpleStringOrErrorEndIndex(startIndex)
-            } 
+            } else if item == BULK_STRING_BYTE_NUMBER {
+                endIndex, err = c.getBulkStringEndIndex(startIndex)
+                fmt.Println(c.data)
+                fmt.Println("endIndex", endIndex)
+            }
 
             if err != nil {
                 return []byte{}, err
@@ -465,6 +466,59 @@ func (c *MessageBuffer) getSimpleStringOrErrorEndIndex(startIndex int) (int, err
         return endIndex, nil
     }
     return -1, errors.New("serialization errror: no crlf found")
+}
+
+func ByteSliceToInteger(byteSlice []byte) (int, error) {
+    str := string(byteSlice)
+    num, err := strconv.Atoi(str)
+    return num, err
+}
+
+func (c *MessageBuffer) getBulkStringEndIndex(startIndex int) (int, error) {
+    startLengthIndex := startIndex + 1
+    if startLengthIndex >= len(c.data) {
+        return -1, errors.New("serialization error: no length found")
+    }
+    endLengthIndex := startLengthIndex
+    hasCrfl := false
+    for endLengthIndex < len(c.data) - 2 {
+        if c.data[endLengthIndex+1] == CARRIAGE_RETURN_BYTE_NUMBER && c.data[endLengthIndex+2] == LINE_FEED_BYTE_NUMBER {
+            hasCrfl = true
+            break
+        }
+        endLengthIndex += 1
+    }
+    if !hasCrfl {
+        return -1, errors.New("serialization errror: no crlf found") 
+    }
+
+    length, err := ByteSliceToInteger(c.data[startLengthIndex:endLengthIndex+1])
+    if err != nil {
+        return -1, errors.New("serialization error: no length found")
+    }
+
+    carriageReturnIndex := endLengthIndex + 1
+    if carriageReturnIndex >= len(c.data) {
+        return -1, errors.New("serialization error: no carriage return found")
+    }
+
+    lineFeedIndex := carriageReturnIndex + 1
+    if lineFeedIndex >= len(c.data) {
+        return -1, errors.New("serialization error: no line feed found")
+    }
+
+    endIndex := lineFeedIndex + length
+
+    if endIndex >= len(c.data)-2 {
+        return -1, errors.New("serialization errror: no crlf found") 
+    }
+
+
+    if c.data[endIndex+1] == CARRIAGE_RETURN_BYTE_NUMBER && c.data[endIndex+2] == LINE_FEED_BYTE_NUMBER {
+        return endIndex+2, nil
+    }
+
+    return -1, errors.New("serialization errror: no crlf found")    
 }
 
 func (c *MessageBuffer) ingest(bytes []byte) {
