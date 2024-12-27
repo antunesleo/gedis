@@ -556,19 +556,19 @@ type SerializationBuffer struct {
     data []byte
 }
 
-func (sb *SerializationBuffer) Serialize() ([]byte, error) {
+func (sb *SerializationBuffer) Dissipate() ([]byte, error) {
 	if len(sb.data) == 0 {
 		return []byte{}, errors.New("serialization error: no data in buffer")
 	}
 
-	for i := 0; i < len(sb.data); i++ {
+	for i, _byte := range sb.data {
         knownFirstBytes := []byte{
             SIMPLE_STRING_BYTE_NUMBER,
             ERROR_STRING_BYTE_NUMBER,
             BULK_STRING_BYTE_NUMBER,
             ARRAY_STRING_BYTE_NUMBER,
         }
-        if slices.Contains(knownFirstBytes, sb.data[i]) {
+        if slices.Contains(knownFirstBytes, _byte) {
             messageStartIndex, messageEndIndex, err := Validate(sb.data, i)
             if err != nil {
                 return []byte{}, err
@@ -606,7 +606,7 @@ func (c *SerializationBuffer) rearrengeBuffer(endIndex int) {
 	}
 }
 
-func (c *SerializationBuffer) ingest(bytes []byte) {
+func (c *SerializationBuffer) Absorb(bytes []byte) {
     return
 }
 
