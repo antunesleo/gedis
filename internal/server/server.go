@@ -544,58 +544,42 @@ func (s ArraySerializer) Serialize(data []byte, startIndex int) (int, error) {
     return endIndex, nil
 }
 
+func ByteSliceToInteger(byteSlice []byte) (int, error) {
+    str := string(byteSlice)
+    num, err := strconv.Atoi(str)
+    return num, err
+}
+
+
 
 type SerializationBuffer struct {
     data []byte
 }
 
-func (c *SerializationBuffer) Serialize() ([]byte, error) {
-	if len(c.data) == 0 {
+func (sb *SerializationBuffer) Serialize() ([]byte, error) {
+	if len(sb.data) == 0 {
 		return []byte{}, errors.New("serialization error: no data in buffer")
 	}
 
-	for i := 0; i < len(c.data); i++ {
+	for i := 0; i < len(sb.data); i++ {
         knownFirstBytes := []byte{
             SIMPLE_STRING_BYTE_NUMBER,
             ERROR_STRING_BYTE_NUMBER,
             BULK_STRING_BYTE_NUMBER,
             ARRAY_STRING_BYTE_NUMBER,
         }
-        if slices.Contains(knownFirstBytes, c.data[i]) {
-            messageStartIndex, messageEndIndex, err := c.validate(i)
+        if slices.Contains(knownFirstBytes, sb.data[i]) {
+            messageStartIndex, messageEndIndex, err := Validate(sb.data, i)
             if err != nil {
                 return []byte{}, err
             }
-            newData := c.copyBytesFromBuffer(messageStartIndex, messageEndIndex)
-            c.rearrengeBuffer(messageEndIndex)
+            newData := sb.copyBytesFromBuffer(messageStartIndex, messageEndIndex)
+            sb.rearrengeBuffer(messageEndIndex)
             return newData, nil           
         }
 	}
 
 	return []byte{}, errors.New("serialization error: unknown first byte data type")
-}
-
-func (sb *SerializationBuffer) validate(startIndex int) (int, int, error) {
-    item := sb.data[startIndex]
-    var messageEndIndex int
-    var err error
-    if item == SIMPLE_STRING_BYTE_NUMBER {
-        serializer := SimpleStringSerializer{}
-        messageEndIndex, err = serializer.Serialize(sb.data, startIndex)
-    } else if item == ERROR_STRING_BYTE_NUMBER {
-        serializer := ErrorSerializer{}
-        messageEndIndex, err = serializer.Serialize(sb.data, startIndex)
-    } else if item == BULK_STRING_BYTE_NUMBER {
-        serializer := BulkStringSerializer{}
-        messageEndIndex, err = serializer.Serialize(sb.data, startIndex)
-    } else if item == ARRAY_STRING_BYTE_NUMBER {
-        messageEndIndex, err = sb.getArrayStringEndIndex(startIndex)
-    }
-
-    if err != nil {
-        return -1, -1, err
-    }
-    return startIndex, messageEndIndex, nil
 }
 
 func (c *SerializationBuffer) copyBytesFromBuffer(startIndex int, endIndex int) []byte {
@@ -620,125 +604,6 @@ func (c *SerializationBuffer) rearrengeBuffer(endIndex int) {
 			break
 		}
 	}
-}
-
-func (c *SerializationBuffer) getSimpleStringOrErrorEndIndex(startIndex int) (int, error) {
-    crlfFound := false
-    endIndex := startIndex + 1
-    for !crlfFound && endIndex < len(c.data)-1 {
-        if c.data[endIndex] == CARRIAGE_RETURN_BYTE_NUMBER && c.data[endIndex+1] == LINE_FEED_BYTE_NUMBER {
-            crlfFound = true
-        }
-        endIndex += 1
-    }
-    if crlfFound {
-        return endIndex, nil
-    }
-    return -1, errors.New("serialization errror: no crlf found")
-}
-
-func ByteSliceToInteger(byteSlice []byte) (int, error) {
-    str := string(byteSlice)
-    num, err := strconv.Atoi(str)
-    return num, err
-}
-
-func (c *SerializationBuffer) validateNumberOfElements(startLengthIndex int) (int, int, error) {
-    if startLengthIndex >= len(c.data) {
-        return -1, -1, errors.New("serialization error: no length found")
-    }
-
-    endLengthIndex, err := c.getEndLenghtIndex(startLengthIndex)
-    if err != nil {
-    	return -1, -1, err
-    }
-
-    length, err := ByteSliceToInteger(c.data[startLengthIndex:endLengthIndex+1])
-    if err != nil {
-        return -1, -1, errors.New("serialization error: no length found")
-    }
-
-    return length, endLengthIndex, nil
-}
-
-func (c *SerializationBuffer) validateCarriageReturnAndLineFeed(carriageReturnIndex int) (int, error) {
-    if carriageReturnIndex >= len(c.data) {
-        return -1, errors.New("serialization error: no carriage return found")
-    }
-
-    lineFeedIndex := carriageReturnIndex + 1
-    if lineFeedIndex >= len(c.data) {
-        return -1, errors.New("serialization error: no line feed found")
-    }
-    return lineFeedIndex, nil
-}
-
-func (c *SerializationBuffer) getBulkStringEndIndex(startIndex int) (int, error) {
-    startLengthIndex := startIndex + 1
-    length, endLengthIndex, err := c.validateNumberOfElements(startLengthIndex)
-
-    if err != nil {
-        return -1, err
-    }
-
-    lineFeedIndex, err := c.validateCarriageReturnAndLineFeed(endLengthIndex+1)
-    if err != nil {
-        return -1, err
-    }
-
-    endIndex := lineFeedIndex + length
-
-    if endIndex >= len(c.data)-2 {
-        return -1, errors.New("serialization errror: no crlf found") 
-    }
-
-
-    if c.data[endIndex+1] == CARRIAGE_RETURN_BYTE_NUMBER && c.data[endIndex+2] == LINE_FEED_BYTE_NUMBER {
-        return endIndex+2, nil
-    }
-
-    return -1, errors.New("serialization errror: no crlf found")    
-}
-
-func (c *SerializationBuffer) getEndLenghtIndex(startLengthIndex int) (int, error) {
-	endLengthIndex := startLengthIndex
-	hasCrfl := false
-	for endLengthIndex < len(c.data)-2 {
-		if c.data[endLengthIndex+1] == CARRIAGE_RETURN_BYTE_NUMBER && c.data[endLengthIndex+2] == LINE_FEED_BYTE_NUMBER {
-			hasCrfl = true
-			break
-		}
-		endLengthIndex += 1
-	}
-	if !hasCrfl {
-		return 0, errors.New("serialization errror: no crlf found")
-	}
-	return endLengthIndex, nil
-}
-
-func (c *SerializationBuffer) getArrayStringEndIndex(startIndex int) (int, error) {
-    startLengthIndex := startIndex + 1
-    length, endLengthIndex, err := c.validateNumberOfElements(startLengthIndex)
-
-    if err != nil {
-        return -1, err
-    }
-
-    lineFeedIndex, err := c.validateCarriageReturnAndLineFeed(endLengthIndex+1)
-    if err != nil {
-        return -1, err
-    }
-
-    endIndex := lineFeedIndex
-    for i := 0; i < length; i++ {
-        _, currEndIndex, err := c.validate(endIndex+1)
-        if err != nil {
-            return -1, err
-        }
-        endIndex = currEndIndex
-    }
-
-    return endIndex, nil
 }
 
 func (c *SerializationBuffer) ingest(bytes []byte) {
