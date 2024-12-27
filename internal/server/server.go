@@ -457,30 +457,28 @@ func  ValidateCarriageReturnAndLineFeed(data []byte, carriageReturnIndex int) (i
     return lineFeedIndex, nil
 }
 
+type DeserializationResult struct {
+    EndIndex int
+    Arguments [][]byte
+}
 
-
-func Deserialize(data []byte, startIndex int) (int, int, error) {
+func Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
     item := data[startIndex]
-    var messageEndIndex int
-    var err error
     if item == SIMPLE_STRING_BYTE_NUMBER {
         serializer := SimpleStringDeserializer2{}
-        messageEndIndex, err = serializer.Deserialize(data, startIndex)
+        return serializer.Deserialize(data, startIndex)
     } else if item == ERROR_STRING_BYTE_NUMBER {
         serializer := ErrorDeserializer2{}
-        messageEndIndex, err = serializer.Deserialize(data, startIndex)
+        return serializer.Deserialize(data, startIndex)
     } else if item == BULK_STRING_BYTE_NUMBER {
         serializer := BulkStringDeserializer2{}
-        messageEndIndex, err = serializer.Deserialize(data, startIndex)
+        return serializer.Deserialize(data, startIndex)
     } else if item == ARRAY_STRING_BYTE_NUMBER {
         serializer := ArrayDeserializer2{}
-        messageEndIndex, err = serializer.Deserialize(data, startIndex)
+        return serializer.Deserialize(data, startIndex)
     }
 
-    if err != nil {
-        return -1, -1, err
-    }
-    return startIndex, messageEndIndex, nil
+    return DeserializationResult{}, errors.New("serialization error: unknown first byte data type")
 }
 
 type Deserializer2 interface {
@@ -488,68 +486,89 @@ type Deserializer2 interface {
 }
 
 type SimpleStringDeserializer2 struct {}
-func (s SimpleStringDeserializer2) Deserialize(data []byte, startIndex int) (int, error) {
-    return FindIndexAfterCrlf(data, startIndex+1)
+func (s SimpleStringDeserializer2) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
+    endIndex, err := FindIndexAfterCrlf(data, startIndex+1)
+    if err != nil {
+        return DeserializationResult{}, err
+    }
+    return DeserializationResult{
+        EndIndex: endIndex, 
+        Arguments: [][]byte{data[startIndex+1:endIndex-2]},
+    }, nil
 }
 
 type ErrorDeserializer2 struct {}
-func (s ErrorDeserializer2) Deserialize(data []byte, startIndex int) (int, error) {
-    return FindIndexAfterCrlf(data, startIndex+1)
+func (s ErrorDeserializer2) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
+    endIndex, err := FindIndexAfterCrlf(data, startIndex+1)
+    if err != nil {
+        return DeserializationResult{}, err
+    }
+    return DeserializationResult{
+        EndIndex: endIndex, 
+        Arguments: [][]byte{data[startIndex+1:endIndex-2]},
+    }, nil
 }
 
 type BulkStringDeserializer2 struct {}
-func (s BulkStringDeserializer2) Deserialize(data []byte, startIndex int) (int, error) {
+func (s BulkStringDeserializer2) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
     startLengthIndex := startIndex + 1
     length, endLengthIndex, err := ValidateNumberOfElements(data, startLengthIndex)
 
     if err != nil {
-        return -1, err
+        return DeserializationResult{}, err
     }
 
     lineFeedIndex, err := ValidateCarriageReturnAndLineFeed(data, endLengthIndex+1)
     if err != nil {
-        return -1, err
+        return DeserializationResult{}, err
     }
 
     endIndex := lineFeedIndex + length
 
     if endIndex >= len(data)-2 {
-        return -1, errors.New("serialization errror: no crlf found") 
+        return DeserializationResult{}, errors.New("serialization errror: no crlf found") 
     }
 
 
     if data[endIndex+1] == CARRIAGE_RETURN_BYTE_NUMBER && data[endIndex+2] == LINE_FEED_BYTE_NUMBER {
-        return endIndex+2, nil
+        return DeserializationResult{
+            EndIndex: endIndex+2,
+            Arguments: [][]byte{data[startIndex+1:endIndex]},
+        }, nil
     }
 
-    return -1, errors.New("serialization errror: no crlf found")      
+    return DeserializationResult{}, errors.New("serialization errror: no crlf found")      
 }
 
 type ArrayDeserializer2 struct {}
-func (s ArrayDeserializer2) Deserialize(data []byte, startIndex int) (int, error) {
+func (s ArrayDeserializer2) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
 
     startLengthIndex := startIndex + 1
     length, endLengthIndex, err := ValidateNumberOfElements(data, startLengthIndex)
 
     if err != nil {
-        return -1, err
+        return DeserializationResult{}, err
     }
 
     lineFeedIndex, err := ValidateCarriageReturnAndLineFeed(data, endLengthIndex+1)
     if err != nil {
-        return -1, err
+        return DeserializationResult{}, err
     }
 
+    arguments := [][]byte{}
     endIndex := lineFeedIndex
     for i := 0; i < length; i++ {
-        _, currEndIndex, err := Deserialize(data, endIndex+1)
+        result, err := Deserialize(data, endIndex+1)
         if err != nil {
-            return -1, err
+            return DeserializationResult{}, err
         }
-        endIndex = currEndIndex
+        endIndex = result.EndIndex
+        for _, arg := range result.Arguments {
+            arguments = append(arguments, arg)
+        }
     }
 
-    return endIndex, nil
+    return DeserializationResult{EndIndex: endIndex, Arguments: arguments}, nil
 }
 
 type DeserializationBuffer struct {
@@ -569,12 +588,12 @@ func (sb *DeserializationBuffer) Dissipate() ([]byte, error) {
             ARRAY_STRING_BYTE_NUMBER,
         }
         if slices.Contains(knownFirstBytes, _byte) {
-            messageStartIndex, messageEndIndex, err := Deserialize(sb.data, i)
+            result, err := Deserialize(sb.data, i)
             if err != nil {
                 return []byte{}, err
             }
-            newData := sb.copyBytesFromBuffer(messageStartIndex, messageEndIndex)
-            sb.rearrengeBuffer(messageEndIndex)
+            newData := sb.copyBytesFromBuffer(i, result.EndIndex)
+            sb.rearrengeBuffer(result.EndIndex)
             return newData, nil           
         }
 	}
