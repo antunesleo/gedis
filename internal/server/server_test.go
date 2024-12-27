@@ -141,8 +141,8 @@ func TestSaveAndRestoreSnapshot(t *testing.T) {
 // 	}
 // }
 
-func makeBufferWithData(data []byte) *MessageBuffer {
-	buffer := NewCommandBuffer()
+func makeBufferWithData(data []byte) *SerializationBuffer {
+	buffer := NewSerializationBuffer()
 	for i := 0; i < len(data) && i < len(buffer.data); i++ {
 		buffer.data[i] = data[i]
 	}
@@ -150,7 +150,7 @@ func makeBufferWithData(data []byte) *MessageBuffer {
 }
 
 
-func assertBufferData(t *testing.T, buffer *MessageBuffer, want []byte) {
+func assertBufferData(t *testing.T, buffer *SerializationBuffer, want []byte) {
 	for i := 0; i < len(want); i++ {
 		if buffer.data[i] != want[i] {
 			t.Fatalf("got %q, wanted %q", buffer.data, want)
@@ -167,7 +167,7 @@ func assertBufferData(t *testing.T, buffer *MessageBuffer, want []byte) {
 }
 
 
-func TestCommandBufferExtractSimpleStringMessage(t *testing.T) {
+func TestSerializationBufferSerializeSimpleString(t *testing.T) {
 	var testcases = []struct {
 		name string
 		bufferData []byte
@@ -181,7 +181,7 @@ func TestCommandBufferExtractSimpleStringMessage(t *testing.T) {
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
 			buffer := makeBufferWithData(tt.bufferData)
-			got, err := buffer.Extract()
+			got, err := buffer.Serialize()
 			if err != nil {
 				t.Errorf("error on extracting message %e", err)
 			}
@@ -196,7 +196,7 @@ func TestCommandBufferExtractSimpleStringMessage(t *testing.T) {
 	}
 }
 
-func TestCommandBufferExtractBulkStringMessage(t *testing.T) {
+func TestSerializationBufferSerializeBulkString(t *testing.T) {
 	var testcases = []struct {
 		name string
 		bufferData []byte
@@ -211,7 +211,7 @@ func TestCommandBufferExtractBulkStringMessage(t *testing.T) {
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
 			buffer := makeBufferWithData(tt.bufferData)
-			got, err := buffer.Extract()
+			got, err := buffer.Serialize()
 			if err != nil {
 				t.Errorf("error on extracting message %e", err)
 			}
@@ -226,7 +226,7 @@ func TestCommandBufferExtractBulkStringMessage(t *testing.T) {
 	}
 }
 
-func TestCommandBufferExtractArrayStringMessage(t *testing.T) {
+func TestSerializationBufferSerializeArrayString(t *testing.T) {
 	var testcases = []struct {
 		name string
 		bufferData []byte
@@ -243,7 +243,7 @@ func TestCommandBufferExtractArrayStringMessage(t *testing.T) {
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
 			buffer := makeBufferWithData(tt.bufferData)
-			got, err := buffer.Extract()
+			got, err := buffer.Serialize()
 			if err != nil {
 				t.Errorf("error on extracting message %e", err)
 			}
@@ -258,7 +258,7 @@ func TestCommandBufferExtractArrayStringMessage(t *testing.T) {
 	}
 }
 
-func TestCommandBufferExtractErrorMessage(t *testing.T) {
+func TestSerializationBufferSerializeError(t *testing.T) {
 	var testcases = []struct {
 		name string
 		bufferData []byte
@@ -272,7 +272,7 @@ func TestCommandBufferExtractErrorMessage(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			buffer := makeBufferWithData(tc.bufferData)
-			got, err := buffer.Extract()
+			got, err := buffer.Serialize()
 			if err != nil {
 				t.Errorf("error on extracting message %e", err)
 			}
@@ -289,7 +289,7 @@ func TestCommandBufferExtractErrorMessage(t *testing.T) {
 
 
 
-func TestCommandBufferExtractSimpleStringMessageMustFailSerialization(t *testing.T) {
+func TestSerializationBufferSerializeSimpleStringMustFail(t *testing.T) {
 	var testcases = []struct {
 		name string
 		bufferData []byte
@@ -301,7 +301,7 @@ func TestCommandBufferExtractSimpleStringMessageMustFailSerialization(t *testing
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			buffer := makeBufferWithData(tc.bufferData)
-			_, err := buffer.Extract()
+			_, err := buffer.Serialize()
 			if err.Error() != tc.wantedError.Error() {
 				t.Errorf("wanted %q got %q", tc.wantedError, err)
 			}
@@ -309,7 +309,7 @@ func TestCommandBufferExtractSimpleStringMessageMustFailSerialization(t *testing
 	}
 }
 
-func TestCommandBufferExtractErrorMessageMustFailSerialization(t *testing.T) {
+func TestSerializationBufferSerializeErrorMustFail(t *testing.T) {
 	var testcases = []struct {
 		name string
 		bufferData []byte
@@ -321,7 +321,7 @@ func TestCommandBufferExtractErrorMessageMustFailSerialization(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			buffer := makeBufferWithData(tc.bufferData)
-			_, err := buffer.Extract()
+			_, err := buffer.Serialize()
 			if err.Error() != tc.wantedError.Error() {
 				t.Errorf("wanted %q got %q", tc.wantedError, err)
 			}
@@ -331,7 +331,7 @@ func TestCommandBufferExtractErrorMessageMustFailSerialization(t *testing.T) {
 }
 
 
-func TestMessageBufferExtractBulkStringMessageMustFailSerialization(t *testing.T) {
+func TestSerializationBufferSerializeBulkStringMustFail(t *testing.T) {
 	var testcases = []struct {
 		name string
 		bufferData []byte
@@ -343,7 +343,7 @@ func TestMessageBufferExtractBulkStringMessageMustFailSerialization(t *testing.T
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			buffer := makeBufferWithData(tc.bufferData)
-			_, err := buffer.Extract()
+			_, err := buffer.Serialize()
 			if err.Error() != tc.wantedError.Error() {
 				t.Errorf("wanted %q got %q", tc.wantedError, err)
 			}

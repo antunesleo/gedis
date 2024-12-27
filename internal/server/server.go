@@ -390,11 +390,11 @@ func handleConnection(conn net.Conn) {
 }
 
 
-type MessageBuffer struct {
+type SerializationBuffer struct {
     data []byte
 }
 
-func (c *MessageBuffer) Extract() ([]byte, error) {
+func (c *SerializationBuffer) Serialize() ([]byte, error) {
 	if len(c.data) == 0 {
 		return []byte{}, errors.New("serialization error: no data in buffer")
 	}
@@ -420,7 +420,7 @@ func (c *MessageBuffer) Extract() ([]byte, error) {
 	return []byte{}, errors.New("serialization error: unknown first byte data type")
 }
 
-func (c *MessageBuffer) validate(startIndex int) (int, int, error) {
+func (c *SerializationBuffer) validate(startIndex int) (int, int, error) {
     item := c.data[startIndex]
     var messageEndIndex int
     var err error
@@ -440,7 +440,7 @@ func (c *MessageBuffer) validate(startIndex int) (int, int, error) {
     return startIndex, messageEndIndex, nil
 }
 
-func (c *MessageBuffer) copyBytesFromBuffer(startIndex int, endIndex int) []byte {
+func (c *SerializationBuffer) copyBytesFromBuffer(startIndex int, endIndex int) []byte {
 	newData := []byte{}
 	for i := startIndex; i <= endIndex; i++ {
 		newData = append(newData, c.data[i])
@@ -448,7 +448,7 @@ func (c *MessageBuffer) copyBytesFromBuffer(startIndex int, endIndex int) []byte
     return newData
 }
 
-func (c *MessageBuffer) rearrengeBuffer(endIndex int) {
+func (c *SerializationBuffer) rearrengeBuffer(endIndex int) {
 	for i := 0; i <= endIndex; i++ {
 		c.data[i] = 0
 	}
@@ -464,7 +464,7 @@ func (c *MessageBuffer) rearrengeBuffer(endIndex int) {
 	}
 }
 
-func (c *MessageBuffer) getSimpleStringOrErrorEndIndex(startIndex int) (int, error) {
+func (c *SerializationBuffer) getSimpleStringOrErrorEndIndex(startIndex int) (int, error) {
     crlfFound := false
     endIndex := startIndex + 1
     for !crlfFound && endIndex < len(c.data)-1 {
@@ -485,7 +485,7 @@ func ByteSliceToInteger(byteSlice []byte) (int, error) {
     return num, err
 }
 
-func (c *MessageBuffer) validateNumberOfElements(startLengthIndex int) (int, int, error) {
+func (c *SerializationBuffer) validateNumberOfElements(startLengthIndex int) (int, int, error) {
     if startLengthIndex >= len(c.data) {
         return -1, -1, errors.New("serialization error: no length found")
     }
@@ -503,7 +503,7 @@ func (c *MessageBuffer) validateNumberOfElements(startLengthIndex int) (int, int
     return length, endLengthIndex, nil
 }
 
-func (c *MessageBuffer) validateCarriageReturnAndLineFeed(carriageReturnIndex int) (int, error) {
+func (c *SerializationBuffer) validateCarriageReturnAndLineFeed(carriageReturnIndex int) (int, error) {
     if carriageReturnIndex >= len(c.data) {
         return -1, errors.New("serialization error: no carriage return found")
     }
@@ -515,7 +515,7 @@ func (c *MessageBuffer) validateCarriageReturnAndLineFeed(carriageReturnIndex in
     return lineFeedIndex, nil
 }
 
-func (c *MessageBuffer) getBulkStringEndIndex(startIndex int) (int, error) {
+func (c *SerializationBuffer) getBulkStringEndIndex(startIndex int) (int, error) {
     startLengthIndex := startIndex + 1
     length, endLengthIndex, err := c.validateNumberOfElements(startLengthIndex)
 
@@ -542,7 +542,7 @@ func (c *MessageBuffer) getBulkStringEndIndex(startIndex int) (int, error) {
     return -1, errors.New("serialization errror: no crlf found")    
 }
 
-func (c *MessageBuffer) getEndLenghtIndex(startLengthIndex int) (int, error) {
+func (c *SerializationBuffer) getEndLenghtIndex(startLengthIndex int) (int, error) {
 	endLengthIndex := startLengthIndex
 	hasCrfl := false
 	for endLengthIndex < len(c.data)-2 {
@@ -558,7 +558,7 @@ func (c *MessageBuffer) getEndLenghtIndex(startLengthIndex int) (int, error) {
 	return endLengthIndex, nil
 }
 
-func (c *MessageBuffer) getArrayStringEndIndex(startIndex int) (int, error) {
+func (c *SerializationBuffer) getArrayStringEndIndex(startIndex int) (int, error) {
     startLengthIndex := startIndex + 1
     length, endLengthIndex, err := c.validateNumberOfElements(startLengthIndex)
 
@@ -583,10 +583,10 @@ func (c *MessageBuffer) getArrayStringEndIndex(startIndex int) (int, error) {
     return endIndex, nil
 }
 
-func (c *MessageBuffer) ingest(bytes []byte) {
+func (c *SerializationBuffer) ingest(bytes []byte) {
     return
 }
 
-func NewCommandBuffer() MessageBuffer {
-    return MessageBuffer{make([]byte, 100)}
+func NewSerializationBuffer() SerializationBuffer {
+    return SerializationBuffer{make([]byte, 100)}
 }
