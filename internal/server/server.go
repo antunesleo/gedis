@@ -414,6 +414,11 @@ func (s SimpleStringSerializer) Serialize(data []byte, startIndex int) (int, err
     return FindIndexAfterCrlf(data, startIndex+1)
 }
 
+type ErrorSerializer struct {}
+func (s ErrorSerializer) Serialize(data []byte, startIndex int) (int, error) {
+    return FindIndexAfterCrlf(data, startIndex+1)
+}
+
 
 type SerializationBuffer struct {
     data []byte
@@ -445,19 +450,20 @@ func (c *SerializationBuffer) Serialize() ([]byte, error) {
 	return []byte{}, errors.New("serialization error: unknown first byte data type")
 }
 
-func (c *SerializationBuffer) validate(startIndex int) (int, int, error) {
-    item := c.data[startIndex]
+func (sb *SerializationBuffer) validate(startIndex int) (int, int, error) {
+    item := sb.data[startIndex]
     var messageEndIndex int
     var err error
     if item == SIMPLE_STRING_BYTE_NUMBER {
         serializer := SimpleStringSerializer{}
-        messageEndIndex, err = serializer.Serialize(c.data, startIndex)
+        messageEndIndex, err = serializer.Serialize(sb.data, startIndex)
     } else if item == ERROR_STRING_BYTE_NUMBER {
-        messageEndIndex, err = c.getSimpleStringOrErrorEndIndex(startIndex)
+        serializer := ErrorSerializer{}
+        messageEndIndex, err = serializer.Serialize(sb.data, startIndex)
     } else if item == BULK_STRING_BYTE_NUMBER {
-        messageEndIndex, err = c.getBulkStringEndIndex(startIndex)
+        messageEndIndex, err = sb.getBulkStringEndIndex(startIndex)
     } else if item == ARRAY_STRING_BYTE_NUMBER {
-        messageEndIndex, err = c.getArrayStringEndIndex(startIndex)
+        messageEndIndex, err = sb.getArrayStringEndIndex(startIndex)
     }
 
     if err != nil {
