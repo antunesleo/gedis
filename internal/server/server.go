@@ -389,6 +389,31 @@ func handleConnection(conn net.Conn) {
     }
 }
 
+func FindIndexAfterCrlf(data []byte, startIndex int) (int, error) {
+    crlfFound := false
+    currIndex := startIndex
+    for !crlfFound && currIndex < len(data)-2 {
+        if data[currIndex+1] == CARRIAGE_RETURN_BYTE_NUMBER && data[currIndex+2] == LINE_FEED_BYTE_NUMBER {
+            crlfFound = true
+            break
+        }
+        currIndex += 1
+    }
+    if crlfFound {
+        return currIndex+2, nil
+    }
+    return -1, errors.New("serialization errror: no crlf found")
+}
+
+type Serializer interface {
+    Serialize(data []byte, startIndex int) (int, error)
+}
+
+type SimpleStringSerializer struct {}
+func (s SimpleStringSerializer) Serialize(data []byte, startIndex int) (int, error) {
+    return FindIndexAfterCrlf(data, startIndex+1)
+}
+
 
 type SerializationBuffer struct {
     data []byte
@@ -425,7 +450,8 @@ func (c *SerializationBuffer) validate(startIndex int) (int, int, error) {
     var messageEndIndex int
     var err error
     if item == SIMPLE_STRING_BYTE_NUMBER {
-        messageEndIndex, err = c.getSimpleStringOrErrorEndIndex(startIndex)
+        serializer := SimpleStringSerializer{}
+        messageEndIndex, err = serializer.Serialize(c.data, startIndex)
     } else if item == ERROR_STRING_BYTE_NUMBER {
         messageEndIndex, err = c.getSimpleStringOrErrorEndIndex(startIndex)
     } else if item == BULK_STRING_BYTE_NUMBER {
