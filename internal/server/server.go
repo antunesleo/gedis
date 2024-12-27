@@ -571,12 +571,16 @@ func (c *MessageBuffer) getArrayStringEndIndex(startIndex int) (int, error) {
         return -1, err
     }
 
+    endIndex := lineFeedIndex
     for i := 0; i < length; i++ {
-        c.validate(lineFeedIndex+1)
+        _, currEndIndex, err := c.validate(endIndex+1)
+        if err != nil {
+            return -1, err
+        }
+        endIndex = currEndIndex
     }
-    
 
-    return 0, nil
+    return endIndex, nil
 }
 
 func (c *MessageBuffer) ingest(bytes []byte) {
