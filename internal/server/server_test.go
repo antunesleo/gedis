@@ -226,6 +226,38 @@ func TestCommandBufferExtractBulkStringMessage(t *testing.T) {
 	}
 }
 
+// func TestCommandBufferExtractArrayStringMessage(t *testing.T) {
+// 	var testcases = []struct {
+// 		name string
+// 		bufferData []byte
+// 		extractedMessage []byte
+// 		remainingBufferData []byte
+// 	} {
+// 		{
+// 			"base case", 
+// 			[]byte("*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n"), 
+// 			[]byte("*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n"), 
+// 			[]byte(""),
+// 		},
+// 	}
+// 	for _, tt := range testcases {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			buffer := makeBufferWithData(tt.bufferData)
+// 			got, err := buffer.Extract()
+// 			if err != nil {
+// 				t.Errorf("error on extracting message %e", err)
+// 			}
+// 			want := tt.extractedMessage
+
+// 			if !reflect.DeepEqual(got, want) {
+// 				t.Errorf("got %q, wanted %q", got, want)
+// 			}
+
+// 			assertBufferData(t, buffer, tt.remainingBufferData)
+// 		})
+// 	}
+// }
+
 func TestCommandBufferExtractErrorMessage(t *testing.T) {
 	var testcases = []struct {
 		name string

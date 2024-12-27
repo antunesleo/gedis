@@ -395,38 +395,48 @@ type MessageBuffer struct {
 }
 
 func (c *MessageBuffer) Extract() ([]byte, error) {
-    if len(c.data) == 0 { 
-        return []byte{}, errors.New("serialization error: no data in buffer")
-    }
+    return c.extract(0)
+}
 
-    for i, item := range c.data {
-        startIndex := i
-        knownFirstBytes := []byte{SIMPLE_STRING_BYTE_NUMBER, ERROR_STRING_BYTE_NUMBER, BULK_STRING_BYTE_NUMBER}
-        if slices.Contains(knownFirstBytes, item) {
-            
-            var endIndex int
-            var err error
- 
-            if item == SIMPLE_STRING_BYTE_NUMBER {
-                endIndex, err = c.getSimpleStringOrErrorEndIndex(startIndex)
-            } else if item == ERROR_STRING_BYTE_NUMBER {
-                endIndex, err = c.getSimpleStringOrErrorEndIndex(startIndex)
-            } else if item == BULK_STRING_BYTE_NUMBER {
-                endIndex, err = c.getBulkStringEndIndex(startIndex)
-                fmt.Println(c.data)
-                fmt.Println("endIndex", endIndex)
-            }
+func (c *MessageBuffer) extract(startIndex int) ([]byte, error) {
+	if len(c.data) == 0 {
+		return []byte{}, errors.New("serialization error: no data in buffer")
+	}
 
-            if err != nil {
-                return []byte{}, err
-            }
-            newData := c.copyBytesFromBuffer(startIndex, endIndex)
-            c.rearrengeBuffer(endIndex)
-            return newData, nil
-        }
-    }
+	for i := startIndex; i < len(c.data); i++ {
+        item := c.data[i]
+		messageStartIndex := i
+		knownFirstBytes := []byte{
+			SIMPLE_STRING_BYTE_NUMBER,
+			ERROR_STRING_BYTE_NUMBER,
+			BULK_STRING_BYTE_NUMBER,
+			ARRAY_STRING_BYTE_NUMBER,
+		}
+		if slices.Contains(knownFirstBytes, item) {
 
-    return []byte{}, errors.New("serialization error: unknown first byte data type")
+			var messageEndIndex int
+			var err error
+
+			if item == SIMPLE_STRING_BYTE_NUMBER {
+				messageEndIndex, err = c.getSimpleStringOrErrorEndIndex(messageStartIndex)
+			} else if item == ERROR_STRING_BYTE_NUMBER {
+				messageEndIndex, err = c.getSimpleStringOrErrorEndIndex(messageStartIndex)
+			} else if item == BULK_STRING_BYTE_NUMBER {
+				messageEndIndex, err = c.getBulkStringEndIndex(messageStartIndex)
+			} else if item == ARRAY_STRING_BYTE_NUMBER {
+				messageEndIndex, err = c.getArrayStringEndIndex(messageStartIndex)
+			}
+
+			if err != nil {
+				return []byte{}, err
+			}
+			newData := c.copyBytesFromBuffer(messageStartIndex, messageEndIndex)
+			c.rearrengeBuffer(messageEndIndex)
+			return newData, nil
+		}
+	}
+
+	return []byte{}, errors.New("serialization error: unknown first byte data type")
 }
 
 func (c *MessageBuffer) copyBytesFromBuffer(startIndex int, endIndex int) []byte {
@@ -474,30 +484,25 @@ func ByteSliceToInteger(byteSlice []byte) (int, error) {
     return num, err
 }
 
-func (c *MessageBuffer) getBulkStringEndIndex(startIndex int) (int, error) {
-    startLengthIndex := startIndex + 1
+func (c *MessageBuffer) validateNumberOfElements(startLengthIndex int) (int, int, error) {
     if startLengthIndex >= len(c.data) {
-        return -1, errors.New("serialization error: no length found")
+        return -1, -1, errors.New("serialization error: no length found")
     }
-    endLengthIndex := startLengthIndex
-    hasCrfl := false
-    for endLengthIndex < len(c.data) - 2 {
-        if c.data[endLengthIndex+1] == CARRIAGE_RETURN_BYTE_NUMBER && c.data[endLengthIndex+2] == LINE_FEED_BYTE_NUMBER {
-            hasCrfl = true
-            break
-        }
-        endLengthIndex += 1
-    }
-    if !hasCrfl {
-        return -1, errors.New("serialization errror: no crlf found") 
+
+    endLengthIndex, err := c.getEndLenghtIndex(startLengthIndex)
+    if err != nil {
+    	return -1, -1, err
     }
 
     length, err := ByteSliceToInteger(c.data[startLengthIndex:endLengthIndex+1])
     if err != nil {
-        return -1, errors.New("serialization error: no length found")
+        return -1, -1, errors.New("serialization error: no length found")
     }
 
-    carriageReturnIndex := endLengthIndex + 1
+    return length, endLengthIndex, nil
+}
+
+func (c *MessageBuffer) validateCarriageReturnAndLineFeed(carriageReturnIndex int) (int, error) {
     if carriageReturnIndex >= len(c.data) {
         return -1, errors.New("serialization error: no carriage return found")
     }
@@ -505,6 +510,21 @@ func (c *MessageBuffer) getBulkStringEndIndex(startIndex int) (int, error) {
     lineFeedIndex := carriageReturnIndex + 1
     if lineFeedIndex >= len(c.data) {
         return -1, errors.New("serialization error: no line feed found")
+    }
+    return lineFeedIndex, nil
+}
+
+func (c *MessageBuffer) getBulkStringEndIndex(startIndex int) (int, error) {
+    startLengthIndex := startIndex + 1
+    length, endLengthIndex, err := c.validateNumberOfElements(startLengthIndex)
+
+    if err != nil {
+        return -1, err
+    }
+
+    lineFeedIndex, err := c.validateCarriageReturnAndLineFeed(endLengthIndex+1)
+    if err != nil {
+        return -1, err
     }
 
     endIndex := lineFeedIndex + length
@@ -519,6 +539,41 @@ func (c *MessageBuffer) getBulkStringEndIndex(startIndex int) (int, error) {
     }
 
     return -1, errors.New("serialization errror: no crlf found")    
+}
+
+func (c *MessageBuffer) getEndLenghtIndex(startLengthIndex int) (int, error) {
+	endLengthIndex := startLengthIndex
+	hasCrfl := false
+	for endLengthIndex < len(c.data)-2 {
+		if c.data[endLengthIndex+1] == CARRIAGE_RETURN_BYTE_NUMBER && c.data[endLengthIndex+2] == LINE_FEED_BYTE_NUMBER {
+			hasCrfl = true
+			break
+		}
+		endLengthIndex += 1
+	}
+	if !hasCrfl {
+		return 0, errors.New("serialization errror: no crlf found")
+	}
+	return endLengthIndex, nil
+}
+
+func (c *MessageBuffer) getArrayStringEndIndex(startIndex int) (int, error) {
+    startLengthIndex := startIndex + 1
+    length, endLengthIndex, err := c.validateNumberOfElements(startLengthIndex)
+
+    if err != nil {
+        return -1, err
+    }
+
+    lineFeedIndex, err := c.validateCarriageReturnAndLineFeed(endLengthIndex+1)
+    if err != nil {
+        return -1, err
+    }
+
+    fmt.Println("lineFeedIndex", lineFeedIndex)
+    fmt.Println("length", length)
+
+    return 0, nil
 }
 
 func (c *MessageBuffer) ingest(bytes []byte) {
