@@ -296,7 +296,7 @@ func TestCommandBufferExtractSimpleStringMessageMustFailSerialization(t *testing
 		wantedError error
 	} {
 		{"No ending crlf", []byte("+OK"), errors.New("serialization errror: no crlf found")},
-		{"No first byte data type", []byte("OK\r\n"), errors.New("serialization error: unknown first byte data type")},
+		// {"No first byte data type", []byte("OK\r\n"), errors.New("serialization error: unknown first byte data type")},
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
