@@ -107,41 +107,7 @@ func TestSaveAndRestoreSnapshot(t *testing.T) {
 
 }
 
-// func TestCommandBufferExtractMessage(t *testing.T) {
-// 	data := []byte("*1\r\n$4\r\nping\r\n")
-// 	buffer := NewCommandBuffer()
-// 	buffer.data = data
-// 	err, got := buffer.extractMessage()
-// 	if err != nil {
-// 		t.Errorf("error on extracting message %e", err)
-// 	}
-// 	want := []byte("*1\r\n$4\r\nping\r\n")
-// 	if !reflect.DeepEqual(got, want) {
-// 		t.Errorf("got %q, wanted %q", got, want)
-// 	}
-// }
-
-// var unserializableMessages = [][]byte {
-// 	[]byte("1\r\n$4\r\nping\r\n"),
-// 	[]byte("*2\r\n$4\r\nping\r\n"),
-// 	[]byte("*1\r\n4\r\nping\r\n"),
-// 	[]byte("*1\r\n$5\r\nping\r\n"),
-// 	[]byte("*1$4\r\nping\r\n"),
-// 	[]byte("*1\r\n$4ping\r\n"),
-// 	[]byte("*1\r\n$4\r\nping"),
-// }
-// func TestCommandBufferExtractMessagePingReturnSerializationError(t *testing.T) {
-// 	for _, unserializableMessage := range unserializableMessages {
-// 		buffer := NewCommandBuffer()
-// 		buffer.data = unserializableMessage
-// 		err, _ := buffer.extractMessage()
-// 		if err == nil {
-// 			t.Error("serialization should have failed")
-// 		}
-// 	}
-// }
-
-func makeBufferWithData(data []byte) *SerializationBuffer {
+func makeSerializationBufferWithData(data []byte) *SerializationBuffer {
 	buffer := NewSerializationBuffer()
 	for i := 0; i < len(data) && i < len(buffer.data); i++ {
 		buffer.data[i] = data[i]
@@ -180,8 +146,8 @@ func TestSerializationBufferSerializeSimpleString(t *testing.T) {
 	}
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
-			buffer := makeBufferWithData(tt.bufferData)
-			got, err := buffer.Serialize()
+			serializationBuffer := makeSerializationBufferWithData(tt.bufferData)
+			got, err := serializationBuffer.Serialize()
 			if err != nil {
 				t.Errorf("error on extracting message %e", err)
 			}
@@ -191,7 +157,7 @@ func TestSerializationBufferSerializeSimpleString(t *testing.T) {
 				t.Errorf("got %q, wanted %q", got, want)
 			}
 
-			assertBufferData(t, buffer, tt.remainingBufferData)
+			assertBufferData(t, serializationBuffer, tt.remainingBufferData)
 		})
 	}
 }
@@ -210,8 +176,8 @@ func TestSerializationBufferSerializeBulkString(t *testing.T) {
 	}
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
-			buffer := makeBufferWithData(tt.bufferData)
-			got, err := buffer.Serialize()
+			serializationBuffer := makeSerializationBufferWithData(tt.bufferData)
+			got, err := serializationBuffer.Serialize()
 			if err != nil {
 				t.Errorf("error on extracting message %e", err)
 			}
@@ -221,7 +187,7 @@ func TestSerializationBufferSerializeBulkString(t *testing.T) {
 				t.Errorf("got %q, wanted %q", got, want)
 			}
 
-			assertBufferData(t, buffer, tt.remainingBufferData)
+			assertBufferData(t, serializationBuffer, tt.remainingBufferData)
 		})
 	}
 }
@@ -242,8 +208,8 @@ func TestSerializationBufferSerializeArrayString(t *testing.T) {
 	}
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
-			buffer := makeBufferWithData(tt.bufferData)
-			got, err := buffer.Serialize()
+			serializationBuffer := makeSerializationBufferWithData(tt.bufferData)
+			got, err := serializationBuffer.Serialize()
 			if err != nil {
 				t.Errorf("error on extracting message %e", err)
 			}
@@ -253,7 +219,7 @@ func TestSerializationBufferSerializeArrayString(t *testing.T) {
 				t.Errorf("got %q, wanted %q", got, want)
 			}
 
-			assertBufferData(t, buffer, tt.remainingBufferData)
+			assertBufferData(t, serializationBuffer, tt.remainingBufferData)
 		})
 	}
 }
@@ -271,8 +237,8 @@ func TestSerializationBufferSerializeError(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			buffer := makeBufferWithData(tc.bufferData)
-			got, err := buffer.Serialize()
+			serializationBuffer := makeSerializationBufferWithData(tc.bufferData)
+			got, err := serializationBuffer.Serialize()
 			if err != nil {
 				t.Errorf("error on extracting message %e", err)
 			}
@@ -282,7 +248,7 @@ func TestSerializationBufferSerializeError(t *testing.T) {
 				t.Errorf("got %q, wanted %q", got, want)
 			}
 
-			assertBufferData(t, buffer, tc.remainingBufferData)
+			assertBufferData(t, serializationBuffer, tc.remainingBufferData)
 		})
 	}
 }
@@ -300,8 +266,8 @@ func TestSerializationBufferSerializeSimpleStringMustFail(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			buffer := makeBufferWithData(tc.bufferData)
-			_, err := buffer.Serialize()
+			serializationBuffer := makeSerializationBufferWithData(tc.bufferData)
+			_, err := serializationBuffer.Serialize()
 			if err.Error() != tc.wantedError.Error() {
 				t.Errorf("wanted %q got %q", tc.wantedError, err)
 			}
@@ -320,8 +286,8 @@ func TestSerializationBufferSerializeErrorMustFail(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			buffer := makeBufferWithData(tc.bufferData)
-			_, err := buffer.Serialize()
+			serializationBuffer := makeSerializationBufferWithData(tc.bufferData)
+			_, err := serializationBuffer.Serialize()
 			if err.Error() != tc.wantedError.Error() {
 				t.Errorf("wanted %q got %q", tc.wantedError, err)
 			}
@@ -342,8 +308,8 @@ func TestSerializationBufferSerializeBulkStringMustFail(t *testing.T) {
 	}
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			buffer := makeBufferWithData(tc.bufferData)
-			_, err := buffer.Serialize()
+			serializationBuffer := makeSerializationBufferWithData(tc.bufferData)
+			_, err := serializationBuffer.Serialize()
 			if err.Error() != tc.wantedError.Error() {
 				t.Errorf("wanted %q got %q", tc.wantedError, err)
 			}
