@@ -405,20 +405,6 @@ func FindIndexAfterCrlf(data []byte, startIndex int) (int, error) {
     return -1, errors.New("serialization errror: no crlf found")
 }
 
-type Serializer interface {
-    Serialize(data []byte, startIndex int) (int, error)
-}
-
-type SimpleStringSerializer struct {}
-func (s SimpleStringSerializer) Serialize(data []byte, startIndex int) (int, error) {
-    return FindIndexAfterCrlf(data, startIndex+1)
-}
-
-type ErrorSerializer struct {}
-func (s ErrorSerializer) Serialize(data []byte, startIndex int) (int, error) {
-    return FindIndexAfterCrlf(data, startIndex+1)
-}
-
 func GetEndLenghtIndex(data []byte, startLengthIndex int) (int, error) {
 	endLengthIndex := startLengthIndex
 	hasCrfl := false
@@ -465,6 +451,44 @@ func  ValidateCarriageReturnAndLineFeed(data []byte, carriageReturnIndex int) (i
     return lineFeedIndex, nil
 }
 
+func Validate(data []byte, startIndex int) (int, int, error) {
+    item := data[startIndex]
+    var messageEndIndex int
+    var err error
+    if item == SIMPLE_STRING_BYTE_NUMBER {
+        serializer := SimpleStringSerializer{}
+        messageEndIndex, err = serializer.Serialize(data, startIndex)
+    } else if item == ERROR_STRING_BYTE_NUMBER {
+        serializer := ErrorSerializer{}
+        messageEndIndex, err = serializer.Serialize(data, startIndex)
+    } else if item == BULK_STRING_BYTE_NUMBER {
+        serializer := BulkStringSerializer{}
+        messageEndIndex, err = serializer.Serialize(data, startIndex)
+    } else if item == ARRAY_STRING_BYTE_NUMBER {
+        serializer := ArraySerializer{}
+        messageEndIndex, err = serializer.Serialize(data, startIndex)
+    }
+
+    if err != nil {
+        return -1, -1, err
+    }
+    return startIndex, messageEndIndex, nil
+}
+
+type Serializer interface {
+    Serialize(data []byte, startIndex int) (int, error)
+}
+
+type SimpleStringSerializer struct {}
+func (s SimpleStringSerializer) Serialize(data []byte, startIndex int) (int, error) {
+    return FindIndexAfterCrlf(data, startIndex+1)
+}
+
+type ErrorSerializer struct {}
+func (s ErrorSerializer) Serialize(data []byte, startIndex int) (int, error) {
+    return FindIndexAfterCrlf(data, startIndex+1)
+}
+
 type BulkStringSerializer struct {}
 func (s BulkStringSerializer) Serialize(data []byte, startIndex int) (int, error) {
     startLengthIndex := startIndex + 1
@@ -491,30 +515,6 @@ func (s BulkStringSerializer) Serialize(data []byte, startIndex int) (int, error
     }
 
     return -1, errors.New("serialization errror: no crlf found")      
-}
-
-func Validate(data []byte, startIndex int) (int, int, error) {
-    item := data[startIndex]
-    var messageEndIndex int
-    var err error
-    if item == SIMPLE_STRING_BYTE_NUMBER {
-        serializer := SimpleStringSerializer{}
-        messageEndIndex, err = serializer.Serialize(data, startIndex)
-    } else if item == ERROR_STRING_BYTE_NUMBER {
-        serializer := ErrorSerializer{}
-        messageEndIndex, err = serializer.Serialize(data, startIndex)
-    } else if item == BULK_STRING_BYTE_NUMBER {
-        serializer := BulkStringSerializer{}
-        messageEndIndex, err = serializer.Serialize(data, startIndex)
-    } else if item == ARRAY_STRING_BYTE_NUMBER {
-        serializer := ArraySerializer{}
-        messageEndIndex, err = serializer.Serialize(data, startIndex)
-    }
-
-    if err != nil {
-        return -1, -1, err
-    }
-    return startIndex, messageEndIndex, nil
 }
 
 type ArraySerializer struct {}
