@@ -200,10 +200,34 @@ func TestSerializationBufferSerializeArrayString(t *testing.T) {
 		remainingBufferData []byte
 	} {
 		{
-			"base case", 
+			"hello world", 
 			[]byte("*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n"), 
 			[]byte("*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n"), 
 			[]byte(""),
+		},
+		{
+			"get key", 
+			[]byte("*2\r\n$3\r\nget\r\n$3\r\nkey\r\n"), 
+			[]byte("*2\r\n$3\r\nget\r\n$3\r\nkey\r\n"), 
+			[]byte(""),
+		},
+		{
+			"set key", 
+			[]byte("*3\r\n$3\r\nset\r\n$3\r\nkey\r\n$5\r\nvalue\r\n"), 
+			[]byte("*3\r\n$3\r\nset\r\n$3\r\nkey\r\n$5\r\nvalue\r\n"), 
+			[]byte(""),
+		},
+		{
+			"noise in the begnning", 
+			[]byte("aa*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n"), 
+			[]byte("*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n"), 
+			[]byte(""),
+		},
+		{
+			"noise in the end", 
+			[]byte("*2\r\n$5\r\nhello\r\n$5\r\nworld\r\naa"), 
+			[]byte("*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n"), 
+			[]byte("aa"),
 		},
 	}
 	for _, tt := range testcases {
