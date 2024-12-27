@@ -359,16 +359,17 @@ func cmdSet(message[][]byte) []byte {
 func handleConnection(conn net.Conn) {
     defer conn.Close()
 
-    buffer := make([]byte, 8192)
+    deserializationBuffer := NewDeserializationBuffer()
+
     for {
         // #TODO this read op is not safe as we don´t know where the message ends. this needs to be refactored.
+        buffer := make([]byte, 8192)
         bytesNumber, connReadErr := conn.Read(buffer)
         if connReadErr != nil {
             fmt.Println("Error:", connReadErr)
             return
         }
 
-        deserializationBuffer := NewDeserializationBuffer()
         err := deserializationBuffer.Absorb(buffer[:bytesNumber])
         if err != nil {
             fmt.Println("Error:", err)
