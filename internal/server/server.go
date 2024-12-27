@@ -363,11 +363,23 @@ func handleConnection(conn net.Conn) {
             return
         }
 
-        deserializer, getDesError := getDeserializer(buffer[:bytesNumber])
-        if getDesError != nil {
+        deserializationBuffer := NewDeserializationBuffer()
+        err := deserializationBuffer.Absorb(buffer[:bytesNumber])
+        if err != nil {
+            fmt.Println("Error:", err)
+        }
+        theResult, dissipateErr := deserializationBuffer.Dissipate()
+        if dissipateErr != nil {
             continue
         }
-        message := deserializer.deserialize(buffer[:bytesNumber])
+
+        // deserializer, getDesError := getDeserializer(buffer[:bytesNumber])
+        // if getDesError != nil {
+        //     continue
+        // }
+        // message := deserializer.deserialize(buffer[:bytesNumber])
+        fmt.Println("Message:", theResult.Arguments)
+        message := theResult.Arguments
         command, getCommandErr := getCommand(message)
 
         var result []byte
@@ -457,6 +469,14 @@ func  ValidateCarriageReturnAndLineFeed(data []byte, carriageReturnIndex int) (i
     return lineFeedIndex, nil
 }
 
+func CopyBytesFromBuffer(data []byte, startIndex int, endIndex int) []byte {
+	newData := []byte{}
+	for i := startIndex; i <= endIndex; i++ {
+		newData = append(newData, data[i])
+	}
+    return newData
+}
+
 type DeserializationResult struct {
     EndIndex int
     Arguments [][]byte
@@ -491,9 +511,10 @@ func (s SimpleStringDeserializer2) Deserialize(data []byte, startIndex int) (Des
     if err != nil {
         return DeserializationResult{}, err
     }
+    argument := CopyBytesFromBuffer(data, startIndex+1, endIndex-2)
     return DeserializationResult{
         EndIndex: endIndex, 
-        Arguments: [][]byte{data[startIndex+1:endIndex-2]},
+        Arguments: [][]byte{argument},
     }, nil
 }
 
@@ -531,9 +552,10 @@ func (s BulkStringDeserializer2) Deserialize(data []byte, startIndex int) (Deser
 
 
     if data[endIndex+1] == CARRIAGE_RETURN_BYTE_NUMBER && data[endIndex+2] == LINE_FEED_BYTE_NUMBER {
+        argument := CopyBytesFromBuffer(data, lineFeedIndex+1, endIndex)
         return DeserializationResult{
             EndIndex: endIndex+2,
-            Arguments: [][]byte{data[startIndex+1:endIndex]},
+            Arguments: [][]byte{argument},
         }, nil
     }
 
@@ -575,9 +597,9 @@ type DeserializationBuffer struct {
     data []byte
 }
 
-func (sb *DeserializationBuffer) Dissipate() ([]byte, error) {
+func (sb *DeserializationBuffer) Dissipate() (DeserializationResult, error) {
 	if len(sb.data) == 0 {
-		return []byte{}, errors.New("serialization error: no data in buffer")
+		return DeserializationResult{}, errors.New("serialization error: no data in buffer")
 	}
 
 	for i, _byte := range sb.data {
@@ -590,15 +612,14 @@ func (sb *DeserializationBuffer) Dissipate() ([]byte, error) {
         if slices.Contains(knownFirstBytes, _byte) {
             result, err := Deserialize(sb.data, i)
             if err != nil {
-                return []byte{}, err
+                return DeserializationResult{}, err
             }
-            newData := sb.copyBytesFromBuffer(i, result.EndIndex)
             sb.rearrengeBuffer(result.EndIndex)
-            return newData, nil           
+            return result, nil           
         }
 	}
 
-	return []byte{}, errors.New("serialization error: unknown first byte data type")
+	return DeserializationResult{}, errors.New("serialization error: unknown first byte data type")
 }
 
 func (c *DeserializationBuffer) copyBytesFromBuffer(startIndex int, endIndex int) []byte {
