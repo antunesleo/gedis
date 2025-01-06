@@ -95,10 +95,6 @@ func serializerInteger(intToSerialize int) []byte {
     return []byte(fmt.Sprintf(":%d\r\n", intToSerialize))
 }
 
-func serializerInteger64(intToSerialize int64) []byte {
-    return []byte(fmt.Sprintf(":%d\r\n", intToSerialize))
-}
-
 type Command interface {
     execute(message[][]byte) []byte
 }
@@ -187,11 +183,6 @@ func Start() {
         }
         go handleConnection(conn)
     }    
-}
-
-func cmdSet(message[][]byte) []byte {
-    cache.Store(string(message[1]), message[2])
-    return serializeSimpleStringFromString("OK")
 }
 
 func handleConnection(conn net.Conn) {
