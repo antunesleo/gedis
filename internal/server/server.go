@@ -141,67 +141,6 @@ func isNumeric(c byte) bool {
     return (c >= '0' && c <= '9')
 }
 
-
-type Deserializer interface {
-    deserialize(message []byte) [][]byte
-}
-
-type ArrayDeserializer struct {}
-func (d ArrayDeserializer) deserialize(message []byte) [][]byte {
-    startIndex := 1
-    var deserializedArray [][]byte
-
-    for startIndex < len(message) {
-        if message[startIndex] == BULK_STRING_BYTE_NUMBER {
-            startIndex += 1
-            moveForward := true
-            for moveForward {
-                if isNumeric(message[startIndex]) {
-                    startIndex += 1
-                } else {
-                    moveForward = false
-                }
-            }
-            deserializedArrayItem := deserializeBulkString(startIndex, message)[0]
-            deserializedArray = append(deserializedArray, deserializedArrayItem)
-        }
-        startIndex += 1
-    }
-
-    return deserializedArray
-}
-
-type SimpleStringDeserializer struct{}
-func (d SimpleStringDeserializer) deserialize(message []byte) [][]byte {
-    return [][]byte{splitFromStartIndexToCRLF(1, message)}
-}
-
-type ErrorDeserializer struct{}
-func (d ErrorDeserializer) deserialize(message []byte) [][]byte {
-    return  [][]byte{splitFromStartIndexToCRLF(1, message)}
-}
-
-type BulkStringDeserializer struct{}
-func (d BulkStringDeserializer) deserialize(message []byte) [][]byte {
-    return deserializeBulkString(1, message)
-}
-
-func getDeserializer(message []byte) (Deserializer, error) {
-    if message[0] == ARRAY_STRING_BYTE_NUMBER {
-        return ArrayDeserializer{}, nil
-    }
-    if message[0] == SIMPLE_STRING_BYTE_NUMBER {
-        return SimpleStringDeserializer{}, nil
-    }
-    if message[0] == ERROR_STRING_BYTE_NUMBER {
-        return ErrorDeserializer{}, nil
-    }
-    if message[0] == BULK_STRING_BYTE_NUMBER {
-        return BulkStringDeserializer{}, nil
-    }
-    return nil, fmt.Errorf("no deserializer for")
-}
-
 func serializeSimpleStringFromByteArray(message []byte) []byte {
     return []byte(fmt.Sprintf("+%s\r\n", message))
 }
@@ -378,12 +317,6 @@ func handleConnection(conn net.Conn) {
             continue
         }
 
-        // deserializer, getDesError := getDeserializer(buffer[:bytesNumber])
-        // if getDesError != nil {
-        //     continue
-        // }
-        // message := deserializer.deserialize(buffer[:bytesNumber])
-        fmt.Println("Message:", theResult.Arguments)
         message := theResult.Arguments
         command, getCommandErr := getCommand(message)
 
