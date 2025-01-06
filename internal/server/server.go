@@ -75,10 +75,6 @@ func restoreSnapshot(cache *sync.Map) (error) {
     return nil
 }
 
-func isNumeric(c byte) bool {
-    return (c >= '0' && c <= '9')
-}
-
 func serializeSimpleStringFromByteArray(message []byte) []byte {
     return []byte(fmt.Sprintf("+%s\r\n", message))
 }
