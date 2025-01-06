@@ -309,28 +309,28 @@ type DeserializationResult struct {
 func Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
     item := data[startIndex]
     if item == SIMPLE_STRING_BYTE_NUMBER {
-        serializer := SimpleStringDeserializer2{}
+        serializer := SimpleStringDeserializer{}
         return serializer.Deserialize(data, startIndex)
     } else if item == ERROR_STRING_BYTE_NUMBER {
-        serializer := ErrorDeserializer2{}
+        serializer := ErrorDeserializer{}
         return serializer.Deserialize(data, startIndex)
     } else if item == BULK_STRING_BYTE_NUMBER {
-        serializer := BulkStringDeserializer2{}
+        serializer := BulkStringDeserializer{}
         return serializer.Deserialize(data, startIndex)
     } else if item == ARRAY_STRING_BYTE_NUMBER {
-        serializer := ArrayDeserializer2{}
+        serializer := ArrayDeserializer{}
         return serializer.Deserialize(data, startIndex)
     }
 
     return DeserializationResult{}, errors.New("serialization error: unknown first byte data type")
 }
 
-type Deserializer2 interface {
+type Deserializer interface {
     Deserialize(data []byte, startIndex int) (int, error)
 }
 
-type SimpleStringDeserializer2 struct {}
-func (s SimpleStringDeserializer2) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
+type SimpleStringDeserializer struct {}
+func (s SimpleStringDeserializer) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
     endIndex, err := FindIndexAfterCrlf(data, startIndex+1)
     if err != nil {
         return DeserializationResult{}, err
@@ -342,8 +342,8 @@ func (s SimpleStringDeserializer2) Deserialize(data []byte, startIndex int) (Des
     }, nil
 }
 
-type ErrorDeserializer2 struct {}
-func (s ErrorDeserializer2) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
+type ErrorDeserializer struct {}
+func (s ErrorDeserializer) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
     endIndex, err := FindIndexAfterCrlf(data, startIndex+1)
     if err != nil {
         return DeserializationResult{}, err
@@ -354,8 +354,8 @@ func (s ErrorDeserializer2) Deserialize(data []byte, startIndex int) (Deserializ
     }, nil
 }
 
-type BulkStringDeserializer2 struct {}
-func (s BulkStringDeserializer2) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
+type BulkStringDeserializer struct {}
+func (s BulkStringDeserializer) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
     startLengthIndex := startIndex + 1
     length, endLengthIndex, err := ValidateNumberOfElements(data, startLengthIndex)
 
@@ -386,8 +386,8 @@ func (s BulkStringDeserializer2) Deserialize(data []byte, startIndex int) (Deser
     return DeserializationResult{}, errors.New("serialization errror: no crlf found")      
 }
 
-type ArrayDeserializer2 struct {}
-func (s ArrayDeserializer2) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
+type ArrayDeserializer struct {}
+func (s ArrayDeserializer) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
 
     startLengthIndex := startIndex + 1
     length, endLengthIndex, err := ValidateNumberOfElements(data, startLengthIndex)
@@ -416,7 +416,7 @@ func (s ArrayDeserializer2) Deserialize(data []byte, startIndex int) (Deserializ
 }
 
 type DeserializationBuffer struct {
-    data []byte // Possible could be implemented as a linked list
+    data []byte // Possibly could be implemented as a linked list
 }
 
 func (c *DeserializationBuffer) rearrengeBuffer(endIndex int) {
