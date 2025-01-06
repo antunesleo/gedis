@@ -590,16 +590,14 @@ func (s ArrayDeserializer2) Deserialize(data []byte, startIndex int) (Deserializ
             return DeserializationResult{}, err
         }
         endIndex = result.EndIndex
-        for _, arg := range result.Arguments {
-            arguments = append(arguments, arg)
-        }
+        arguments = append(arguments, result.Arguments...)
     }
 
     return DeserializationResult{EndIndex: endIndex, Arguments: arguments}, nil
 }
 
 type DeserializationBuffer struct {
-    data []byte
+    data []byte // Possible could be implemented as a linked list
 }
 
 func (c *DeserializationBuffer) rearrengeBuffer(endIndex int) {
