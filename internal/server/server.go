@@ -51,29 +51,28 @@ func saveSnapshot(cache *sync.Map) error {
     return nil
 }
 
-func restoreSnapshot() (*sync.Map, error) {
-    fi, err := os.Open("snapshot.gedis")
-    if err != nil {
-        return nil, err
+func restoreSnapshot(cache *sync.Map) (error) {
+    fi, openErr := os.Open("snapshot.gedis")
+    if openErr != nil {
+        return openErr
     }
     defer fi.Close()
 
-    cache := &sync.Map{}
     scanner := bufio.NewScanner(fi)
     for scanner.Scan() {
         key := scanner.Text()
         if !scanner.Scan() {
-            return nil, errors.New("serialization error: incomplete snapshot")
+            return errors.New("serialization error: incomplete snapshot")
         }
         value := scanner.Text()
         cache.Store(key, []byte(value))
     }
 
-    if err := scanner.Err(); err != nil {
-        return nil, err
+    if scanErr := scanner.Err(); scanErr != nil {
+        return scanErr
     }
 
-    return cache, nil
+    return nil
 }
 
 func isNumeric(c byte) bool {
@@ -169,9 +168,9 @@ func periodicallySaveSnapshot() {
 }
 
 func Start() {
-    newCache, restoreErr := restoreSnapshot()
-    if restoreErr == nil {
-        cache = *newCache
+    restoreErr := restoreSnapshot(&cache)
+    if restoreErr != nil {
+        fmt.Println(restoreErr)
     }
 
     listerner, listenErr := net.Listen("tcp", "localhost:6379")
