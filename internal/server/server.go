@@ -362,15 +362,14 @@ func handleConnection(conn net.Conn) {
     deserializationBuffer := NewDeserializationBuffer()
 
     for {
-        // #TODO this read op is not safe as we don´t know where the message ends. this needs to be refactored.
-        buffer := make([]byte, 8192)
-        bytesNumber, connReadErr := conn.Read(buffer)
+        connBuffer := make([]byte, 8192)
+        bytesRead, connReadErr := conn.Read(connBuffer)
         if connReadErr != nil {
             fmt.Println("Error:", connReadErr)
             return
         }
 
-        err := deserializationBuffer.Absorb(buffer[:bytesNumber])
+        err := deserializationBuffer.Absorb(connBuffer[:bytesRead])
         if err != nil {
             fmt.Println("Error:", err)
         }
@@ -603,39 +602,6 @@ type DeserializationBuffer struct {
     data []byte
 }
 
-func (sb *DeserializationBuffer) Dissipate() (DeserializationResult, error) {
-	if len(sb.data) == 0 {
-		return DeserializationResult{}, errors.New("serialization error: no data in buffer")
-	}
-
-	for i, _byte := range sb.data {
-        knownFirstBytes := []byte{
-            SIMPLE_STRING_BYTE_NUMBER,
-            ERROR_STRING_BYTE_NUMBER,
-            BULK_STRING_BYTE_NUMBER,
-            ARRAY_STRING_BYTE_NUMBER,
-        }
-        if slices.Contains(knownFirstBytes, _byte) {
-            result, err := Deserialize(sb.data, i)
-            if err != nil {
-                return DeserializationResult{}, err
-            }
-            sb.rearrengeBuffer(result.EndIndex)
-            return result, nil           
-        }
-	}
-
-	return DeserializationResult{}, errors.New("serialization error: unknown first byte data type")
-}
-
-func (c *DeserializationBuffer) copyBytesFromBuffer(startIndex int, endIndex int) []byte {
-	newData := []byte{}
-	for i := startIndex; i <= endIndex; i++ {
-		newData = append(newData, c.data[i])
-	}
-    return newData
-}
-
 func (c *DeserializationBuffer) rearrengeBuffer(endIndex int) {
 	for i := 0; i <= endIndex; i++ {
 		c.data[i] = 0
@@ -674,6 +640,31 @@ func (c *DeserializationBuffer) Absorb(bytes []byte) error {
         emptyIndex += 1
     }
     return nil
+}
+
+func (sb *DeserializationBuffer) Dissipate() (DeserializationResult, error) {
+	if len(sb.data) == 0 {
+		return DeserializationResult{}, errors.New("serialization error: no data in buffer")
+	}
+
+	for i, _byte := range sb.data {
+        knownFirstBytes := []byte{
+            SIMPLE_STRING_BYTE_NUMBER,
+            ERROR_STRING_BYTE_NUMBER,
+            BULK_STRING_BYTE_NUMBER,
+            ARRAY_STRING_BYTE_NUMBER,
+        }
+        if slices.Contains(knownFirstBytes, _byte) {
+            result, err := Deserialize(sb.data, i)
+            if err != nil {
+                return DeserializationResult{}, err
+            }
+            sb.rearrengeBuffer(result.EndIndex)
+            return result, nil           
+        }
+	}
+
+	return DeserializationResult{}, errors.New("serialization error: unknown first byte data type")
 }
 
 func NewDeserializationBuffer() DeserializationBuffer {
