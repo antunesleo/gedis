@@ -192,20 +192,20 @@ func (command CommandIncr) execute(message[][]byte) []byte {
     return serializerInteger64(newValue)
 }
 
-func getCommand(message[][]byte) (Command, error) {
-    if bytes.Equal(message[0], SET_BYTE_ARRAY) {
+func getCommand(messageFirstByteArray *[]byte) (Command, error) {
+    if bytes.Equal(*messageFirstByteArray, SET_BYTE_ARRAY) {
         return &CommandSet{}, nil
-    } else if bytes.Equal(message[0], GET_BYTE_ARRAY) {
+    } else if bytes.Equal(*messageFirstByteArray, GET_BYTE_ARRAY) {
         return &CommandGet{}, nil
-    } else if bytes.Equal(message[0], PING_BYTE_ARRAY) {
+    } else if bytes.Equal(*messageFirstByteArray, PING_BYTE_ARRAY) {
         return &CommandPing{}, nil
-    } else if bytes.Equal(message[0], ECHO_BYTE_ARRAY) {
+    } else if bytes.Equal(*messageFirstByteArray, ECHO_BYTE_ARRAY) {
         return &CommandEcho{}, nil
-    } else if bytes.Equal(message[0], EXISTS_BYTE_ARRAY) {
+    } else if bytes.Equal(*messageFirstByteArray, EXISTS_BYTE_ARRAY) {
         return &CommandExists{}, nil
-    } else if bytes.Equal(message[0], DEL_BYTE_ARRAY) {
+    } else if bytes.Equal(*messageFirstByteArray, DEL_BYTE_ARRAY) {
         return &CommandDel{}, nil
-    } else if bytes.Equal(message[0], INCR_BYTE_ARRAY) {
+    } else if bytes.Equal(*messageFirstByteArray, INCR_BYTE_ARRAY) {
         return &CommandIncr{}, nil
     } else {
         return nil, errors.New("no command found for message")
@@ -269,7 +269,7 @@ func handleConnection(conn net.Conn) {
         }
 
         message := theResult.Arguments
-        command, getCommandErr := getCommand(message)
+        command, getCommandErr := getCommand(&message[0])
 
         var result []byte
         if getCommandErr != nil {
