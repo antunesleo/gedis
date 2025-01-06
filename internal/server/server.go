@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -23,12 +24,14 @@ var ECHO_BYTE_ARRAY = []byte("ECHO")
 var GET_BYTE_ARRAY = []byte("GET")
 var EXISTS_BYTE_ARRAY = []byte("EXISTS")
 var SET_BYTE_ARRAY = []byte("SET")
-var DEL_BYTE_ARRAY = []byte("DEL")
-var INCR_BYTE_ARRAY = []byte("INCR")
 
-
-var cache sync.Map
-
+// cache is a concurrent-safe map for storing frequently accessed data.
+//
+// Why sync.Map?
+// Regular maps in Go are *not safe* for concurrent reads and writes and will panic with
+// "fatal error: concurrent map writes". sync.Map ensures safe access without requiring
+// manual locking (e.g., sync.Mutex) and is optimized for frequent reads with occasional writes.
+var cache sync.Map 
 
 func saveSnapshot(cache *sync.Map) error {
     fi, err := os.Create("snapshot.gedis")
@@ -48,49 +51,29 @@ func saveSnapshot(cache *sync.Map) error {
     return nil
 }
 
-func restoreSnapshot() (error, map[string][]byte) {
-    innerCache := map[string][]byte{}
-    fil, err := os.Open("snapshop.gedis")
+func restoreSnapshot() (*sync.Map, error) {
+    fi, err := os.Open("snapshot.gedis")
     if err != nil {
-        return err, nil
+        return nil, err
     }
-    buffer := make([]byte, 10000)
-    _, err = fil.Read(buffer)
-    if err != nil {
-        return err, nil
-    }
+    defer fi.Close()
 
-    var index = 0
-    for index < len(buffer) {
-        var key []byte
-        var value []byte
-
-        var keyFinished = false
-        for  index < len(buffer) && !keyFinished  {
-            if buffer[index] == LINE_FEED_BYTE_NUMBER {
-                keyFinished = true
-            } else {
-                key = append(key, buffer[index])
-            }
-            index += 1
+    cache := &sync.Map{}
+    scanner := bufio.NewScanner(fi)
+    for scanner.Scan() {
+        key := scanner.Text()
+        if !scanner.Scan() {
+            return nil, errors.New("serialization error: incomplete snapshot")
         }
-
-        var valueFinished = false
-        for  index < len(buffer) && !valueFinished  {
-            if buffer[index] == LINE_FEED_BYTE_NUMBER {
-                valueFinished = true
-            } else {
-                value = append(value, buffer[index])
-            }
-            index += 1
-        }
-
-        if len(key) != 0 && len(value) != 0 {
-            innerCache[string(key)] = value
-        }
+        value := scanner.Text()
+        cache.Store(key, []byte(value))
     }
 
-    return nil, innerCache
+    if err := scanner.Err(); err != nil {
+        return nil, err
+    }
+
+    return cache, nil
 }
 
 func isNumeric(c byte) bool {
@@ -186,17 +169,17 @@ func periodicallySaveSnapshot() {
 }
 
 func Start() {
-    // restoreErr, newCache := restoreSnapshot()
-    // if restoreErr == nil {
-    //     cache = newCache
-    // }
+    newCache, restoreErr := restoreSnapshot()
+    if restoreErr == nil {
+        cache = *newCache
+    }
 
     listerner, listenErr := net.Listen("tcp", "localhost:6379")
     if listenErr != nil {
         fmt.Println(listenErr)
         return
     }
-    // go periodicallySaveSnapshot()
+    go periodicallySaveSnapshot()
     for {
         conn, acceptErr := listerner.Accept()
         if acceptErr != nil {
