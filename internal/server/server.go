@@ -8,6 +8,7 @@ import (
 	"os"
 	"slices"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -26,20 +27,24 @@ var DEL_BYTE_ARRAY = []byte("DEL")
 var INCR_BYTE_ARRAY = []byte("INCR")
 
 
-var cache = make(map[string][]byte)
+var cache sync.Map
 
 
-func saveSnapshot(cache map[string][]byte) error {
-    fi, err := os.Create("snapshop.gedis")
+func saveSnapshot(cache *sync.Map) error {
+    fi, err := os.Create("snapshot.gedis")
     if err != nil {
         return err
     }
-    for key, value := range cache {
-        fi.Write([]byte(key))
+    defer fi.Close()
+
+    cache.Range(func(key, value interface{}) bool {
+        fi.Write([]byte(key.(string)))
         fi.Write([]byte("\n"))
-        fi.Write(value)
+        fi.Write(value.([]byte))
         fi.Write([]byte("\n"))
-    }
+        return true
+    })
+
     return nil
 }
 
@@ -128,15 +133,15 @@ func (command CommandEcho) execute(message[][]byte) []byte {
 
 type CommandSet struct {}
 func (command CommandSet) execute(message[][]byte) []byte {
-    cache[string(message[1])] = message[2]
+    cache.Store(string(message[1]), message[2])
     return serializeSimpleStringFromString("OK")
 }
 
 type CommandGet struct {}
 func (command CommandGet) execute(message[][]byte) []byte {
-    value, ok := cache[string(message[1])]
+    value, ok := cache.Load(string(message[1]))
     if ok {
-        return serializeSimpleStringFromByteArray(value)
+        return serializeSimpleStringFromByteArray(value.([]byte))
     }
     return serializeError("doesn't exist")
 }
@@ -146,7 +151,7 @@ func (command CommandExists) execute(message[][]byte) []byte {
     var existsCount = 0
     var itemIndex = 1
     for itemIndex < len(message) {
-        _, ok := cache[string(message[itemIndex])]
+        _, ok := cache.Load(string(message[1]))
         if ok {
             existsCount += 1
         }
@@ -156,41 +161,6 @@ func (command CommandExists) execute(message[][]byte) []byte {
     return serializerInteger(existsCount)
 }
 
-type CommandDel struct {}
-func (command CommandDel) execute(message[][]byte) []byte {
-    var existsCount = 0
-    var itemIndex = 1
-    for itemIndex < len(message) {
-        _, ok := cache[string(message[itemIndex])]
-        if ok {
-            existsCount += 1
-        }
-        itemIndex += 1
-    }
-
-    return serializerInteger(existsCount)
-}
-
-type CommandIncr struct {}
-func (command CommandIncr) execute(message[][]byte) []byte {
-    var key = string(message[1])
-    value, ok := cache[key]
-
-    if ok {
-        value, err := strconv.ParseInt(string(value), 10, 64)
-        if err != nil {
-            return serializeError("ERR value is not an integer or out of range")
-        }
-        newValue := value + 1
-        cache[key] = []byte(strconv.FormatInt(newValue, 10))
-        return serializerInteger64(newValue)
-    }
-
-    var newValue int64 = 1 
-
-    cache[key] = []byte(strconv.FormatInt(newValue, 10))
-    return serializerInteger64(newValue)
-}
 
 func getCommand(messageFirstArgument *[]byte) (Command, error) {
     if bytes.Equal(*messageFirstArgument, SET_BYTE_ARRAY) {
@@ -203,10 +173,6 @@ func getCommand(messageFirstArgument *[]byte) (Command, error) {
         return &CommandEcho{}, nil
     } else if bytes.Equal(*messageFirstArgument, EXISTS_BYTE_ARRAY) {
         return &CommandExists{}, nil
-    } else if bytes.Equal(*messageFirstArgument, DEL_BYTE_ARRAY) {
-        return &CommandDel{}, nil
-    } else if bytes.Equal(*messageFirstArgument, INCR_BYTE_ARRAY) {
-        return &CommandIncr{}, nil
     } else {
         return nil, errors.New("no command found for message")
     }
@@ -215,7 +181,7 @@ func getCommand(messageFirstArgument *[]byte) (Command, error) {
 func periodicallySaveSnapshot() {
     for {
         time.Sleep(5 * time.Second)
-        saveSnapshot(cache)
+        saveSnapshot(&cache)
     }
 }
 
@@ -242,7 +208,7 @@ func Start() {
 }
 
 func cmdSet(message[][]byte) []byte {
-    cache[string(message[1])] = message[2]
+    cache.Store(string(message[1]), message[2])
     return serializeSimpleStringFromString("OK")
 }
 
