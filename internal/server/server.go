@@ -19,11 +19,13 @@ const BULK_STRING_BYTE_NUMBER = 36 // $
 const ARRAY_STRING_BYTE_NUMBER = 42 // *
 const CARRIAGE_RETURN_BYTE_NUMBER = 13 // \r
 const LINE_FEED_BYTE_NUMBER = 10 // \n
+const DESSERIALIZATION_BUFFER_SIZE = 8000 // This implementation can't handle redis commands bigger than 8000 bytes
 var PING_BYTE_ARRAY = []byte("PING")
 var ECHO_BYTE_ARRAY = []byte("ECHO")
 var GET_BYTE_ARRAY = []byte("GET")
 var EXISTS_BYTE_ARRAY = []byte("EXISTS")
 var SET_BYTE_ARRAY = []byte("SET")
+
 
 // cache is a concurrent-safe map for storing frequently accessed data.
 //
@@ -427,7 +429,7 @@ func (sb *DeserializationBuffer) Dissipate() (DeserializationResult, error) {
 }
 
 func NewDeserializationBuffer() DeserializationBuffer {
-    return DeserializationBuffer{make([]byte, 100)}
+    return DeserializationBuffer{make([]byte, DESSERIALIZATION_BUFFER_SIZE)}
 }
 
 func handleConnection(conn net.Conn) {
@@ -436,7 +438,7 @@ func handleConnection(conn net.Conn) {
     deserializationBuffer := NewDeserializationBuffer()
 
     for {
-        connBuffer := make([]byte, 8192)
+        connBuffer := make([]byte, DESSERIALIZATION_BUFFER_SIZE)
         bytesRead, connReadErr := conn.Read(connBuffer)
         if connReadErr != nil {
             fmt.Println("Error:", connReadErr)
