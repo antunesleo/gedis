@@ -88,55 +88,6 @@ func restoreSnapshot() (error, map[string][]byte) {
     return nil, innerCache
 }
 
-
-func splitFromStartIndexToCRLF(startIndex int, message []byte) []byte {
-    var deserialized []byte 
-    for startIndex < len(message){
-        if message[startIndex] == CARRIAGE_RETURN_BYTE_NUMBER || message[startIndex] == LINE_FEED_BYTE_NUMBER {
-            break
-        }
-        deserialized = append(deserialized, message[startIndex])
-        startIndex += 1
-    }
-    return deserialized
-}
-
-
-func deserializeBulkString(startIndex int, message []byte) [][]byte {
-    moveForward := true
-
-    index := startIndex
-    for moveForward {
-        if  isNumeric(message[index]) {
-            index += 1
-        } else {
-            moveForward = false
-        }
-    }
-
-    if message[index] == CARRIAGE_RETURN_BYTE_NUMBER && message[index+1] == LINE_FEED_BYTE_NUMBER {
-        index += 2
-    } else {
-        // invalid
-        return [][]byte{}
-    }
-
-    var stringBuffer []byte
-    moveForward = true
-    for moveForward {
-        if message[index] == CARRIAGE_RETURN_BYTE_NUMBER && message[index+1] == LINE_FEED_BYTE_NUMBER {
-            moveForward = false
-        } else {
-            stringBuffer = append(stringBuffer, message[index])
-            index += 1
-        }
-    }
-    if len(stringBuffer) == 0 {
-        return [][]byte{}
-    }
-    return [][]byte{stringBuffer}
-}
-
 func isNumeric(c byte) bool {
     return (c >= '0' && c <= '9')
 }
