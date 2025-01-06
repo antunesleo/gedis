@@ -266,7 +266,7 @@ type Deserializer interface {
 }
 
 type SimpleStringDeserializer struct {}
-func (s SimpleStringDeserializer) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
+func (s *SimpleStringDeserializer) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
     endIndex, err := FindIndexAfterCrlf(data, startIndex+1)
     if err != nil {
         return DeserializationResult{}, err
@@ -279,7 +279,7 @@ func (s SimpleStringDeserializer) Deserialize(data []byte, startIndex int) (Dese
 }
 
 type ErrorDeserializer struct {}
-func (s ErrorDeserializer) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
+func (s *ErrorDeserializer) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
     endIndex, err := FindIndexAfterCrlf(data, startIndex+1)
     if err != nil {
         return DeserializationResult{}, err
@@ -291,7 +291,7 @@ func (s ErrorDeserializer) Deserialize(data []byte, startIndex int) (Deserializa
 }
 
 type BulkStringDeserializer struct {}
-func (s BulkStringDeserializer) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
+func (s *BulkStringDeserializer) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
     startLengthIndex := startIndex + 1
     length, endLengthIndex, err := ValidateNumberOfElements(data, startLengthIndex)
 
@@ -323,7 +323,7 @@ func (s BulkStringDeserializer) Deserialize(data []byte, startIndex int) (Deseri
 }
 
 type ArrayDeserializer struct {}
-func (s ArrayDeserializer) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
+func (s *ArrayDeserializer) Deserialize(data []byte, startIndex int) (DeserializationResult, error) {
 
     startLengthIndex := startIndex + 1
     length, endLengthIndex, err := ValidateNumberOfElements(data, startLengthIndex)
@@ -428,8 +428,8 @@ func (sb *DeserializationBuffer) Dissipate() (DeserializationResult, error) {
 	return DeserializationResult{}, errors.New("serialization error: unknown first byte data type")
 }
 
-func NewDeserializationBuffer() DeserializationBuffer {
-    return DeserializationBuffer{make([]byte, DESSERIALIZATION_BUFFER_SIZE)}
+func NewDeserializationBuffer() *DeserializationBuffer {
+    return &DeserializationBuffer{make([]byte, DESSERIALIZATION_BUFFER_SIZE)}
 }
 
 func handleConnection(conn net.Conn) {
