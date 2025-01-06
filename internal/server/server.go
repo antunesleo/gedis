@@ -75,6 +75,13 @@ func restoreSnapshot(cache *sync.Map) (error) {
     return nil
 }
 
+func periodicallySaveSnapshot() {
+    for {
+        time.Sleep(5 * time.Second)
+        saveSnapshot(&cache)
+    }
+}
+
 func serializeSimpleStringFromByteArray(message []byte) []byte {
     return []byte(fmt.Sprintf("+%s\r\n", message))
 }
@@ -149,79 +156,6 @@ func getCommand(messageFirstArgument *[]byte) (Command, error) {
         return &CommandExists{}, nil
     } else {
         return nil, errors.New("no command found for message")
-    }
-}
-
-func periodicallySaveSnapshot() {
-    for {
-        time.Sleep(5 * time.Second)
-        saveSnapshot(&cache)
-    }
-}
-
-func Start() {
-    restoreErr := restoreSnapshot(&cache)
-    if restoreErr != nil {
-        fmt.Println(restoreErr)
-    }
-
-    listerner, listenErr := net.Listen("tcp", "localhost:6379")
-    if listenErr != nil {
-        fmt.Println(listenErr)
-        return
-    }
-    go periodicallySaveSnapshot()
-    for {
-        conn, acceptErr := listerner.Accept()
-        if acceptErr != nil {
-            fmt.Println(acceptErr)
-            continue
-        }
-        go handleConnection(conn)
-    }    
-}
-
-func handleConnection(conn net.Conn) {
-    defer conn.Close()
-
-    deserializationBuffer := NewDeserializationBuffer()
-
-    for {
-        connBuffer := make([]byte, 8192)
-        bytesRead, connReadErr := conn.Read(connBuffer)
-        if connReadErr != nil {
-            fmt.Println("Error:", connReadErr)
-            return
-        }
-
-        err := deserializationBuffer.Absorb(connBuffer[:bytesRead])
-        if err != nil {
-            fmt.Println("Error:", err)
-        }
-        theResult, dissipateErr := deserializationBuffer.Dissipate()
-        if dissipateErr != nil {
-            continue
-        }
-
-        message := theResult.Arguments
-        command, getCommandErr := getCommand(&message[0])
-
-        var result []byte
-        if getCommandErr != nil {
-            result = serializeError("not implemented")
-        } else {
-            result = command.execute(message)
-        }
-
-        totalWritten := 0
-        for totalWritten < len(result) {
-            bytesWrittenNumbers, connWriteErr := conn.Write(result[totalWritten:])
-            if connWriteErr != nil {
-                fmt.Println("Error:", connWriteErr)
-                return
-            }
-            totalWritten += bytesWrittenNumbers
-        }
     }
 }
 
@@ -415,6 +349,12 @@ func (s ArrayDeserializer) Deserialize(data []byte, startIndex int) (Deserializa
     return DeserializationResult{EndIndex: endIndex, Arguments: arguments}, nil
 }
 
+// DeserializationBuffer is a buffer that handles TCP connection reads.
+// As Taneubaum explained in his book "Computer Networks", TCP is not a message protocol, but a stream.
+// This means that we might receive partial bytes from a Redis command, or receive bytes from multiple commands in the same read.
+// For this reason, we need this deserialization buffer.
+// The Dissipate method extracts a command from the buffer, but it doesn't mean that there's no data left in the buffer.
+// That's why we need the Absorb method, which appends the bytes read from the network and joins them with the existing data in the buffer.
 type DeserializationBuffer struct {
     data []byte // Possibly could be implemented as a linked list
 }
@@ -435,6 +375,7 @@ func (c *DeserializationBuffer) rearrengeBuffer(endIndex int) {
 	}
 }
 
+// Absorb appends the bytes read from the network to the existing data in the buffer.
 func (c *DeserializationBuffer) Absorb(bytes []byte) error {
     emptyIndex := -1
     for i, _byte := range c.data {
@@ -459,6 +400,7 @@ func (c *DeserializationBuffer) Absorb(bytes []byte) error {
     return nil
 }
 
+// Dissipate extracts a command from the buffer, but it doesn't mean that there's no data left in the buffer.
 func (sb *DeserializationBuffer) Dissipate() (DeserializationResult, error) {
 	if len(sb.data) == 0 {
 		return DeserializationResult{}, errors.New("serialization error: no data in buffer")
@@ -486,4 +428,70 @@ func (sb *DeserializationBuffer) Dissipate() (DeserializationResult, error) {
 
 func NewDeserializationBuffer() DeserializationBuffer {
     return DeserializationBuffer{make([]byte, 100)}
+}
+
+func handleConnection(conn net.Conn) {
+    defer conn.Close()
+
+    deserializationBuffer := NewDeserializationBuffer()
+
+    for {
+        connBuffer := make([]byte, 8192)
+        bytesRead, connReadErr := conn.Read(connBuffer)
+        if connReadErr != nil {
+            fmt.Println("Error:", connReadErr)
+            return
+        }
+
+        err := deserializationBuffer.Absorb(connBuffer[:bytesRead])
+        if err != nil {
+            fmt.Println("Error:", err)
+        }
+        theResult, dissipateErr := deserializationBuffer.Dissipate()
+        if dissipateErr != nil {
+            continue
+        }
+
+        message := theResult.Arguments
+        command, getCommandErr := getCommand(&message[0])
+
+        var result []byte
+        if getCommandErr != nil {
+            result = serializeError("not implemented")
+        } else {
+            result = command.execute(message)
+        }
+
+        totalWritten := 0
+        for totalWritten < len(result) {
+            bytesWrittenNumbers, connWriteErr := conn.Write(result[totalWritten:])
+            if connWriteErr != nil {
+                fmt.Println("Error:", connWriteErr)
+                return
+            }
+            totalWritten += bytesWrittenNumbers
+        }
+    }
+}
+
+func Start() {
+    restoreErr := restoreSnapshot(&cache)
+    if restoreErr != nil {
+        fmt.Println(restoreErr)
+    }
+
+    listerner, listenErr := net.Listen("tcp", "localhost:6379")
+    if listenErr != nil {
+        fmt.Println(listenErr)
+        return
+    }
+    go periodicallySaveSnapshot()
+    for {
+        conn, acceptErr := listerner.Accept()
+        if acceptErr != nil {
+            fmt.Println(acceptErr)
+            continue
+        }
+        go handleConnection(conn)
+    }    
 }
