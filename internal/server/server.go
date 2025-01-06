@@ -289,9 +289,10 @@ func (s *ErrorDeserializer) Deserialize(data []byte, startIndex int) (Deserializ
 	if err != nil {
 		return DeserializationResult{}, err
 	}
+	argument := CopyBytesFromBuffer(data, startIndex+1, endIndex-2)
 	return DeserializationResult{
 		EndIndex:  endIndex,
-		Arguments: [][]byte{data[startIndex+1 : endIndex-2]},
+		Arguments: [][]byte{argument},
 	}, nil
 }
 
