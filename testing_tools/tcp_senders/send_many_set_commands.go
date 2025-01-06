@@ -16,7 +16,7 @@ func SendManySetCommands() {
 
 	for i := 0; i < 20; i++ {
 		message := "*3\r\n$3\r\nSET\r\n$5\r\nmykey\r\n$29\r\nmylonglonglongsodamnlongvalue\r\n"
-		
+
 		_, err = conn.Write([]byte(message))
 		if err != nil {
 			fmt.Println("Error sending message:", err)
