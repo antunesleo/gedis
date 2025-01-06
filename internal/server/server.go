@@ -447,29 +447,34 @@ func handleConnection(conn net.Conn) {
         if err != nil {
             fmt.Println("Error:", err)
         }
-        theResult, dissipateErr := deserializationBuffer.Dissipate()
-        if dissipateErr != nil {
-            continue
-        }
 
-        message := theResult.Arguments
-        command, getCommandErr := getCommand(&message[0])
-
-        var result []byte
-        if getCommandErr != nil {
-            result = serializeError("not implemented")
-        } else {
-            result = command.execute(message)
-        }
-
-        totalWritten := 0
-        for totalWritten < len(result) {
-            bytesWrittenNumbers, connWriteErr := conn.Write(result[totalWritten:])
-            if connWriteErr != nil {
-                fmt.Println("Error:", connWriteErr)
-                return
+        thereIsCommandInBuffer := true
+        for thereIsCommandInBuffer {
+            theResult, dissipateErr := deserializationBuffer.Dissipate()
+            if dissipateErr != nil {
+                thereIsCommandInBuffer = false
+                continue
             }
-            totalWritten += bytesWrittenNumbers
+
+            message := theResult.Arguments
+            command, getCommandErr := getCommand(&message[0])
+
+            var result []byte
+            if getCommandErr != nil {
+                result = serializeError("not implemented")
+            } else {
+                result = command.execute(message)
+            }
+
+            totalWritten := 0
+            for totalWritten < len(result) {
+                bytesWrittenNumbers, connWriteErr := conn.Write(result[totalWritten:])
+                if connWriteErr != nil {
+                    fmt.Println("Error:", connWriteErr)
+                    return
+                }
+                totalWritten += bytesWrittenNumbers
+            }
         }
     }
 }
